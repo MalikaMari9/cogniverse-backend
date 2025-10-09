@@ -1,0 +1,24 @@
+# --------------- Python & FastAPI ---------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# --------------- Environment & Secrets ----------
+.env
+venv/
+*/venv/              # catches venv in parent dir
+env/
+*/env/
+
+# --------------- Uploads ------------------------
+uploads/
+media/
+static/uploads/
+
+# --------------- IDE & OS -----------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
