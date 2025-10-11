@@ -10,21 +10,24 @@ class ProjectStatus(str, Enum):
     completed = "completed"
 
 class ProjectBase(BaseModel):
-    projectName: str = Field(..., max_length=100)
+    projectname: str = Field(..., max_length=100)
     project_desc: Optional[str] = None
 
 class ProjectCreate(ProjectBase):
     pass
 
-class ProjectUpdate(ProjectBase):
+class ProjectUpdate(BaseModel):
+    projectname: Optional[str] = Field(None, max_length=100)
+    project_desc: Optional[str] = None
     status: Optional[ProjectStatus] = None
 
 class ProjectResponse(ProjectBase):
-    projectID: int
-    userID: int
+    projectid: int
+    userid: int
     status: ProjectStatus
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime]
+    deleted_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode for Pydantic v2

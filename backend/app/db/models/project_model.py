@@ -13,10 +13,10 @@ class ProjectStatus(str, enum.Enum):
 class Project(Base):
     __tablename__ = "project_tbl"
 
-    projectID = Column(Integer, primary_key=True, index=True)
-    projectName = Column(String(100), nullable=False)
+    projectid = Column(Integer, primary_key=True, index=True)
+    projectname = Column(String(100), nullable=False)
     project_desc = Column(Text)
-    userID = Column(Integer, ForeignKey("user_tbl.userid", ondelete="CASCADE"), nullable=False)
+    userid = Column(Integer, ForeignKey("user_tbl.userid", ondelete="CASCADE"), nullable=False)
     status = Column(Enum(ProjectStatus), default=ProjectStatus.draft)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

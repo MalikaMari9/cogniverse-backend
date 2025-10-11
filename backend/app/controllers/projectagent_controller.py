@@ -8,8 +8,8 @@ def get_all_project_agents(db: Session):
     return db.query(ProjectAgent).all()
 
 
-def get_project_agent_by_id(db: Session, projAgentID: int):
-    project_agent = db.query(ProjectAgent).filter(ProjectAgent.projAgentID == projAgentID).first()
+def get_project_agent_by_id(db: Session, projagentid: int):
+    project_agent = db.query(ProjectAgent).filter(ProjectAgent.projagentid == projagentid).first()
     if not project_agent:
         raise HTTPException(status_code=404, detail="ProjectAgent not found")
     return project_agent
@@ -19,8 +19,8 @@ def create_project_agent(db: Session, project_agent_data: ProjectAgentCreate):
     existing = (
         db.query(ProjectAgent)
         .filter(
-            ProjectAgent.projectID == project_agent_data.projectID,
-            ProjectAgent.agentID == project_agent_data.agentID,
+            ProjectAgent.projectid == project_agent_data.projectid,
+            ProjectAgent.agentid == project_agent_data.agentid,
         )
         .first()
     )
@@ -34,8 +34,8 @@ def create_project_agent(db: Session, project_agent_data: ProjectAgentCreate):
     return new_project_agent
 
 
-def update_project_agent(db: Session, projAgentID: int, project_agent_data: ProjectAgentUpdate):
-    project_agent = db.query(ProjectAgent).filter(ProjectAgent.projAgentID == projAgentID).first()
+def update_project_agent(db: Session, projagentid: int, project_agent_data: ProjectAgentUpdate):
+    project_agent = db.query(ProjectAgent).filter(ProjectAgent.projagentid == projagentid).first()
     if not project_agent:
         raise HTTPException(status_code=404, detail="ProjectAgent not found")
 
@@ -47,8 +47,8 @@ def update_project_agent(db: Session, projAgentID: int, project_agent_data: Proj
     return project_agent
 
 
-def delete_project_agent(db: Session, projAgentID: int):
-    project_agent = db.query(ProjectAgent).filter(ProjectAgent.projAgentID == projAgentID).first()
+def delete_project_agent(db: Session, projagentid: int):
+    project_agent = db.query(ProjectAgent).filter(ProjectAgent.projagentid == projagentid).first()
     if not project_agent:
         raise HTTPException(status_code=404, detail="ProjectAgent not found")
 

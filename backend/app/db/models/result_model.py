@@ -16,13 +16,13 @@ class ResultType(str, enum.Enum):
 class Result(Base):
     __tablename__ = "result_tbl"
 
-    resultID = Column(Integer, primary_key=True, index=True)
-    projectAgentID = Column(Integer, ForeignKey("projectagent_tbl.projAgentID", ondelete="CASCADE"), nullable=False)
-    scenarioID = Column(Integer, ForeignKey("scenario_tbl.scenarioID", ondelete="CASCADE"), nullable=False)
-    resultType = Column(Enum(ResultType))
+    resultid = Column(Integer, primary_key=True, index=True)
+    projectagentid = Column(Integer, ForeignKey("projectagent_tbl.projagentid", ondelete="CASCADE"), nullable=False)
+    scenarioid = Column(Integer, ForeignKey("scenario_tbl.scenarioid", ondelete="CASCADE"), nullable=False)
+    resulttype = Column(Enum(ResultType))
     sequence_no = Column(Integer)
     confidence_score = Column(Float)
-    resultText = Column(Text)
+    resulttext = Column(Text)
     status = Column(Enum(LifecycleStatus), default=LifecycleStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

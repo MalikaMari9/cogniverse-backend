@@ -6,8 +6,8 @@ from app.db.schemas.result_schema import ResultCreate, ResultUpdate
 def get_all_results(db: Session):
     return db.query(Result).all()
 
-def get_result_by_id(db: Session, result_id: int):
-    result = db.query(Result).filter(Result.resultID == result_id).first()
+def get_result_by_id(db: Session, resultid: int):
+    result = db.query(Result).filter(Result.resultid == resultid).first()
     if not result:
         raise HTTPException(status_code=404, detail="Result not found")
     return result
@@ -19,8 +19,8 @@ def create_result(db: Session, result_data: ResultCreate):
     db.refresh(new_result)
     return new_result
 
-def update_result(db: Session, result_id: int, result_data: ResultUpdate):
-    result = db.query(Result).filter(Result.resultID == result_id).first()
+def update_result(db: Session, resultid: int, result_data: ResultUpdate):
+    result = db.query(Result).filter(Result.resultid == resultid).first()
     if not result:
         raise HTTPException(status_code=404, detail="Result not found")
     for key, value in result_data.dict(exclude_unset=True).items():
@@ -29,8 +29,8 @@ def update_result(db: Session, result_id: int, result_data: ResultUpdate):
     db.refresh(result)
     return result
 
-def delete_result(db: Session, result_id: int):
-    result = db.query(Result).filter(Result.resultID == result_id).first()
+def delete_result(db: Session, resultid: int):
+    result = db.query(Result).filter(Result.resultid == resultid).first()
     if not result:
         raise HTTPException(status_code=404, detail="Result not found")
     db.delete(result)

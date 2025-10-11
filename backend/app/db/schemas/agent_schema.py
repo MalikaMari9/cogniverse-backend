@@ -14,14 +14,14 @@ class LifecycleStatus(str, Enum):
 
 # ---------- BASE SCHEMA ----------
 class AgentBase(BaseModel):
-    agentName: Annotated[str, Field(min_length=1, max_length=100)]
-    agentPersonality: Optional[str] = Field(None, max_length=20)
-    agentSkill: Annotated[List[str], Field(min_length=1, description="Must include at least one skill")]
-    agentBiography: Optional[str] = None
-    agentConstraints: Annotated[List[str], Field(min_length=1, description="Must include at least one constraint")]
-    agentQuirk: Optional[List[str]] = Field(default_factory=list)
-    agentMotivation: Optional[str] = None
-    userID: int
+    agentname: Annotated[str, Field(min_length=1, max_length=100)]
+    agentpersonality: Optional[str] = Field(None, max_length=20)
+    agentskill: Annotated[List[str], Field(min_length=1, description="Must include at least one skill")]
+    agentbiography: Optional[str] = None
+    agentconstraints: Annotated[List[str], Field(min_length=1, description="Must include at least one constraint")]
+    agentquirk: Optional[List[str]] = Field(default_factory=list)
+    agentmotivation: Optional[str] = None
+    userid: int
     status: Optional[LifecycleStatus] = LifecycleStatus.active
 
 
@@ -32,19 +32,19 @@ class AgentCreate(AgentBase):
 
 # ---------- UPDATE SCHEMA ----------
 class AgentUpdate(BaseModel):
-    agentName: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
-    agentPersonality: Optional[Annotated[str, Field(max_length=20)]] = None
-    agentSkill: Optional[Annotated[List[str], Field(min_length=1)]] = None
-    agentBiography: Optional[str] = None
-    agentConstraints: Optional[Annotated[List[str], Field(min_length=1)]] = None
-    agentQuirk: Optional[List[str]] = None
-    agentMotivation: Optional[str] = None
+    agentname: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
+    agentpersonality: Optional[Annotated[str, Field(max_length=20)]] = None
+    agentskill: Optional[Annotated[List[str], Field(min_length=1)]] = None
+    agentbiography: Optional[str] = None
+    agentconstraints: Optional[Annotated[List[str], Field(min_length=1)]] = None
+    agentquirk: Optional[List[str]] = None
+    agentmotivation: Optional[str] = None
     status: Optional[LifecycleStatus] = None
 
 
 # ---------- RESPONSE SCHEMA ----------
 class AgentResponse(AgentBase):
-    agentID: int
+    agentid: int
     created_at: datetime
     updated_at: Optional[datetime]
     deleted_at: Optional[datetime]

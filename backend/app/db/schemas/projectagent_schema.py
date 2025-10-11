@@ -11,9 +11,9 @@ class LifecycleStatus(str, Enum):
 
 
 class ProjectAgentBase(BaseModel):
-    projectID: int
-    agentID: int
-    agentSnapshot: Optional[Any] = None
+    projectid: int
+    agentid: int
+    agentsnapshot: Optional[Any] = None
     status: LifecycleStatus = LifecycleStatus.active
 
 
@@ -22,12 +22,12 @@ class ProjectAgentCreate(ProjectAgentBase):
 
 
 class ProjectAgentUpdate(BaseModel):
-    agentSnapshot: Optional[Any] = None
+    agentsnapshot: Optional[Any] = None
     status: Optional[LifecycleStatus] = None
 
 
 class ProjectAgentResponse(ProjectAgentBase):
-    projAgentID: int
+    projagentid: int
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     deleted_at: Optional[datetime] = None

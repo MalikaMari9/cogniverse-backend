@@ -11,10 +11,10 @@ class LifecycleStatus(str, enum.Enum):
 class Scenario(Base):
     __tablename__ = "scenario_tbl"
 
-    scenarioID = Column(Integer, primary_key=True, index=True)
-    scenarioName = Column(String(100))
-    scenarioPrompt = Column(Text)
-    projectID = Column(Integer, ForeignKey("project_tbl.projectID", ondelete="CASCADE"), nullable=False)
+    scenarioid = Column(Integer, primary_key=True, index=True)
+    scenarioname = Column(String(100))
+    scenarioprompt = Column(Text)
+    projectid = Column(Integer, ForeignKey("project_tbl.projectid", ondelete="CASCADE"), nullable=False)
     status = Column(Enum(LifecycleStatus), default=LifecycleStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

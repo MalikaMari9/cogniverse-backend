@@ -8,8 +8,8 @@ def get_all_relations(db: Session):
     return db.query(AgentRelation).all()
 
 
-def get_relation_by_id(db: Session, agentRelationID: int):
-    relation = db.query(AgentRelation).filter(AgentRelation.agentRelationID == agentRelationID).first()
+def get_relation_by_id(db: Session, agentrelationid: int):
+    relation = db.query(AgentRelation).filter(AgentRelation.agentrelationid == agentrelationid).first()
     if not relation:
         raise HTTPException(status_code=404, detail="Relation not found")
     return relation
@@ -19,9 +19,9 @@ def create_relation(db: Session, relation_data: AgentRelationCreate):
     existing = (
         db.query(AgentRelation)
         .filter(
-            AgentRelation.projectID == relation_data.projectID,
-            AgentRelation.agentA_ID == relation_data.agentA_ID,
-            AgentRelation.agentB_ID == relation_data.agentB_ID,
+            AgentRelation.projectid == relation_data.projectid,
+            AgentRelation.agenta_id == relation_data.agenta_id,
+            AgentRelation.agentb_id == relation_data.agentb_id,
         )
         .first()
     )
@@ -35,8 +35,8 @@ def create_relation(db: Session, relation_data: AgentRelationCreate):
     return new_relation
 
 
-def update_relation(db: Session, agentRelationID: int, relation_data: AgentRelationUpdate):
-    relation = db.query(AgentRelation).filter(AgentRelation.agentRelationID == agentRelationID).first()
+def update_relation(db: Session, agentrelationid: int, relation_data: AgentRelationUpdate):
+    relation = db.query(AgentRelation).filter(AgentRelation.agentrelationid == agentrelationid).first()
     if not relation:
         raise HTTPException(status_code=404, detail="Relation not found")
 
@@ -48,8 +48,8 @@ def update_relation(db: Session, agentRelationID: int, relation_data: AgentRelat
     return relation
 
 
-def delete_relation(db: Session, agentRelationID: int):
-    relation = db.query(AgentRelation).filter(AgentRelation.agentRelationID == agentRelationID).first()
+def delete_relation(db: Session, agentrelationid: int):
+    relation = db.query(AgentRelation).filter(AgentRelation.agentrelationid == agentrelationid).first()
     if not relation:
         raise HTTPException(status_code=404, detail="Relation not found")
 

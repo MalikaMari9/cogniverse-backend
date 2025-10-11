@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.db.models.agent_model import Agent
+from app.db.models.agent_model import Agent, LifecycleStatus
 from app.db.schemas.agent_schema import AgentCreate, AgentUpdate
 
 
@@ -11,7 +11,7 @@ def get_all_agents(db: Session):
 
 def get_agent_by_id(agent_id: int, db: Session):
     """Retrieve a single agent by ID."""
-    agent = db.query(Agent).filter(Agent.agentID == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
@@ -19,7 +19,7 @@ def get_agent_by_id(agent_id: int, db: Session):
 
 def create_agent(agent_data: AgentCreate, db: Session):
     """Create a new agent, ensuring agentName is unique."""
-    existing = db.query(Agent).filter(Agent.agentName == agent_data.agentName).first()
+    existing = db.query(Agent).filter(Agent.agentname == agent_data.agentname).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -35,15 +35,15 @@ def create_agent(agent_data: AgentCreate, db: Session):
 
 def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
     """Update agent information."""
-    agent = db.query(Agent).filter(Agent.agentID == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     # Prevent duplicate name conflicts
-    if agent_data.agentName:
+    if agent_data.agentname:
         existing = db.query(Agent).filter(
-            Agent.agentName == agent_data.agentName,
-            Agent.agentID != agent_id
+            Agent.agentname == agent_data.agentname,
+            Agent.agentid != agent_id
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Agent name already taken")
@@ -59,7 +59,7 @@ def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
 
 def delete_agent(agent_id: int, db: Session):
     """Delete an agent by ID."""
-    agent = db.query(Agent).filter(Agent.agentID == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
