@@ -42,3 +42,9 @@ app.include_router(auth_routes.router)
 
 from app.routes import user_profile_routes
 app.include_router(user_profile_routes.router)
+
+from app.routes import project_routes
+app.include_router(project_routes.router)
+
+from app.routes import agent_routes
+app.include_router(agent_routes.router)
