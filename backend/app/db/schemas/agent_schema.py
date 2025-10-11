@@ -1,40 +1,53 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from typing import List, Optional
+from typing_extensions import Annotated
+from datetime import datetime
+from enum import Enum
 
 
+# ---------- ENUM ----------
+class LifecycleStatus(str, Enum):
+    active = "active"
+    inactive = "inactive"
+    archived = "archived"
+
+
+# ---------- BASE SCHEMA ----------
 class AgentBase(BaseModel):
-    name: str = Field(..., min_length=2, max_length=100)
-    role: str = Field(..., min_length=2, max_length=100)
-    skills: List[str] = Field(..., min_items=1, description="List of skills")
-    constraints: List[str] = Field(..., min_items=1, description="List of constraints")
-    quirks: Optional[List[str]] = Field(default_factory=list, description="List of quirks")
-
-    @validator("skills", "constraints", "quirks", each_item=True)
-    def validate_array_items(cls, v):
-        if not isinstance(v, str):
-            raise ValueError("Each item must be a string")
-        if not v.strip():
-            raise ValueError("Empty strings are not allowed")
-        return v
+    agentName: Annotated[str, Field(min_length=1, max_length=100)]
+    agentPersonality: Optional[str] = Field(None, max_length=20)
+    agentSkill: Annotated[List[str], Field(min_length=1, description="Must include at least one skill")]
+    agentBiography: Optional[str] = None
+    agentConstraints: Annotated[List[str], Field(min_length=1, description="Must include at least one constraint")]
+    agentQuirk: Optional[List[str]] = Field(default_factory=list)
+    agentMotivation: Optional[str] = None
+    userID: int
+    status: Optional[LifecycleStatus] = LifecycleStatus.active
 
 
+# ---------- CREATE SCHEMA ----------
 class AgentCreate(AgentBase):
-    """Schema for creating a new agent."""
     pass
 
 
+# ---------- UPDATE SCHEMA ----------
 class AgentUpdate(BaseModel):
-    """Schema for updating an existing agent."""
-    name: Optional[str] = Field(None, min_length=2, max_length=100)
-    role: Optional[str] = Field(None, min_length=2, max_length=100)
-    skills: Optional[List[str]]
-    constraints: Optional[List[str]]
-    quirks: Optional[List[str]]
+    agentName: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
+    agentPersonality: Optional[Annotated[str, Field(max_length=20)]] = None
+    agentSkill: Optional[Annotated[List[str], Field(min_length=1)]] = None
+    agentBiography: Optional[str] = None
+    agentConstraints: Optional[Annotated[List[str], Field(min_length=1)]] = None
+    agentQuirk: Optional[List[str]] = None
+    agentMotivation: Optional[str] = None
+    status: Optional[LifecycleStatus] = None
 
 
+# ---------- RESPONSE SCHEMA ----------
 class AgentResponse(AgentBase):
-    """Response schema for returning agent data."""
-    id: int
+    agentID: int
+    created_at: datetime
+    updated_at: Optional[datetime]
+    deleted_at: Optional[datetime]
 
     class Config:
         orm_mode = True

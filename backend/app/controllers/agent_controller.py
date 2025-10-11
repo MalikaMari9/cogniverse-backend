@@ -11,22 +11,22 @@ def get_all_agents(db: Session):
 
 def get_agent_by_id(agent_id: int, db: Session):
     """Retrieve a single agent by ID."""
-    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentID == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
 
 
 def create_agent(agent_data: AgentCreate, db: Session):
-    """Create a new agent, ensuring name is unique."""
-    existing = db.query(Agent).filter(Agent.name == agent_data.name).first()
+    """Create a new agent, ensuring agentName is unique."""
+    existing = db.query(Agent).filter(Agent.agentName == agent_data.agentName).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Agent with this name already exists"
         )
 
-    new_agent = Agent(**agent_data.dict())
+    new_agent = Agent(**agent_data.model_dump())
     db.add(new_agent)
     db.commit()
     db.refresh(new_agent)
@@ -35,17 +35,21 @@ def create_agent(agent_data: AgentCreate, db: Session):
 
 def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
     """Update agent information."""
-    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentID == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    if agent_data.name:
-        # Prevent duplicate name conflicts
-        existing = db.query(Agent).filter(Agent.name == agent_data.name, Agent.id != agent_id).first()
+    # Prevent duplicate name conflicts
+    if agent_data.agentName:
+        existing = db.query(Agent).filter(
+            Agent.agentName == agent_data.agentName,
+            Agent.agentID != agent_id
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Agent name already taken")
 
-    for key, value in agent_data.dict(exclude_unset=True).items():
+    # Update only provided fields
+    for key, value in agent_data.model_dump(exclude_unset=True).items():
         setattr(agent, key, value)
 
     db.commit()
@@ -55,7 +59,7 @@ def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
 
 def delete_agent(agent_id: int, db: Session):
     """Delete an agent by ID."""
-    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentID == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
