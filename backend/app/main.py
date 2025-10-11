@@ -48,3 +48,15 @@ app.include_router(project_routes.router)
 
 from app.routes import agent_routes
 app.include_router(agent_routes.router)
+
+from app.routes import projectagent_routes
+app.include_router(projectagent_routes.router)
+
+from app.routes import agentrelation_routes
+app.include_router(agentrelation_routes.router)
+
+from app.routes import scenario_routes
+app.include_router(scenario_routes.router)
+
+from app.routes import result_routes
+app.include_router(result_routes.router)
