@@ -60,3 +60,24 @@ app.include_router(scenario_routes.router)
 
 from app.routes import result_routes
 app.include_router(result_routes.router)
+
+from app.routes import system_log_routes
+app.include_router(system_log_routes.router)
+
+from app.routes import config_routes
+app.include_router(config_routes.router)
+
+from app.routes import contact_routes
+app.include_router(contact_routes.router)
+
+from app.routes import announcement_routes
+app.include_router(announcement_routes.router)
+
+from app.routes import notification_routes
+app.include_router(notification_routes.router)
+
+from app.routes import access_control_routes
+app.include_router(access_control_routes.router)
+
+from app.routes import revoked_token_routes
+app.include_router(revoked_token_routes.router)
