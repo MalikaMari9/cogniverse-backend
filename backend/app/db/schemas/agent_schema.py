@@ -16,12 +16,12 @@ class LifecycleStatus(str, Enum):
 class AgentBase(BaseModel):
     agentname: Annotated[str, Field(min_length=1, max_length=100)]
     agentpersonality: Optional[str] = Field(None, max_length=20)
-    agentskill: Annotated[List[str], Field(min_length=1, description="Must include at least one skill")]
+    agentskill: List[str] = Field(default_factory=list)  # ✅ relaxed
     agentbiography: Optional[str] = None
-    agentconstraints: Annotated[List[str], Field(min_length=1, description="Must include at least one constraint")]
-    agentquirk: Optional[List[str]] = Field(default_factory=list)
+    agentconstraints: List[str] = Field(default_factory=list)  # ✅ relaxed
+    agentquirk: List[str] = Field(default_factory=list)
     agentmotivation: Optional[str] = None
-    userid: int
+    userid: Optional[int] = None  # ✅ backend will inject
     status: Optional[LifecycleStatus] = LifecycleStatus.active
 
 
@@ -34,9 +34,9 @@ class AgentCreate(AgentBase):
 class AgentUpdate(BaseModel):
     agentname: Optional[Annotated[str, Field(min_length=1, max_length=100)]] = None
     agentpersonality: Optional[Annotated[str, Field(max_length=20)]] = None
-    agentskill: Optional[Annotated[List[str], Field(min_length=1)]] = None
+    agentskill: Optional[List[str]] = None
     agentbiography: Optional[str] = None
-    agentconstraints: Optional[Annotated[List[str], Field(min_length=1)]] = None
+    agentconstraints: Optional[List[str]] = None
     agentquirk: Optional[List[str]] = None
     agentmotivation: Optional[str] = None
     status: Optional[LifecycleStatus] = None

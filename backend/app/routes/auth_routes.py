@@ -38,4 +38,5 @@ def logout_route(
     credentials=Depends(security), current_user: dict = Depends(get_current_user)
 ):
     token = credentials.credentials
-    return logout_user(token, current_user["user_id"])
+    return logout_user(token, current_user.userid)
+
