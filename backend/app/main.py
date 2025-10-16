@@ -11,17 +11,18 @@ app = FastAPI(
 )
 
 # --- CORS (temporary open; restrict later) ---
+origins = [
+    "http://localhost:5173",   # Vite frontend
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=origins,          # exact origins
+    allow_credentials=True,         # ✅ needed for cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # --- Simple root endpoint ---
 @app.get("/")

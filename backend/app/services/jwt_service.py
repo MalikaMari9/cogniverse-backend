@@ -51,11 +51,17 @@ def get_current_user(
 ):
     token = credentials.credentials
     payload = verify_token(token)
-    user = db.query(User).filter(User.userid == payload["user_id"]).first()
+
+    # The user id is in 'sub', not 'user_id'
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = db.query(User).filter(User.userid == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
     return user
-
 
 
 def revoke_token(token: str, user_id: int):
