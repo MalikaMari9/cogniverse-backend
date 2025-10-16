@@ -81,3 +81,9 @@ app.include_router(access_control_routes.router)
 
 from app.routes import revoked_token_routes
 app.include_router(revoked_token_routes.router)
+
+from app.routes import memory_routes
+app.include_router(memory_routes.router)
+
+from app.routes import weaver_routes
+app.include_router(weaver_routes.router)
