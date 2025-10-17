@@ -29,5 +29,10 @@ def edit_profile(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return update_user_profile(db, current_user.userid, username, email, profile_image)
-
+    return update_user_profile(
+        db=db,
+        user_id=current_user.userid,
+        username=username,
+        email=email,
+        profile_image=profile_image,
+    )
