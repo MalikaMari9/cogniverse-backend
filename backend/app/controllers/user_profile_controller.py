@@ -9,6 +9,7 @@ from app.services.utils.upload_config import (
     MAX_FILE_SIZE,
     PROFILE_IMAGE_BASE_URL
 )
+import bcrypt  # 🆕 ADD THIS IMPORT
 
 
 def get_user_profile(db: Session, user_id: int) -> User:
@@ -95,3 +96,31 @@ def update_user_profile(
     db.commit()
     db.refresh(user)
     return user
+
+# 🆕 ADD PASSWORD CHANGE FUNCTION
+def change_user_password(
+    db: Session,
+    user_id: int,
+    current_password: str,
+    new_password: str
+):
+    user = db.query(User).filter(User.userid == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not bcrypt.checkpw(current_password.encode('utf-8'), user.password_hash.encode('utf-8')):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password length
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Hash new password
+    new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Update password
+    user.password_hash = new_password_hash
+    db.commit()
+    
+    return {"message": "Password updated successfully"}

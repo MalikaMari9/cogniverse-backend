@@ -7,9 +7,11 @@ from app.controllers.user_profile_controller import (
     update_user_profile,
     save_profile_image,
     delete_old_profile_image,
+    change_user_password,  # 🆕 ADD THIS IMPORT
 )
 from app.services.jwt_service import get_current_user
 from app.db.schemas.user_schema import UserResponse
+from app.db.schemas.user_schema import UserResponse, PasswordChangeRequest, PasswordChangeResponse  # 🆕 ADD THESE IMPORTS
 
 router = APIRouter(prefix="/users", tags=["User Profile"])
 
@@ -83,12 +85,28 @@ async def delete_profile_picture(
     
     return user
 
+# 🆕 ADD PASSWORD CHANGE ROUTE
+@router.put("/profile/password", response_model=PasswordChangeResponse)
+def change_password(
+    password_data: PasswordChangeRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change user password with old password verification"""
+    return change_user_password(
+        db=db,
+        user_id=current_user.userid,
+        current_password=password_data.current_password,
+        new_password=password_data.new_password
+    )
+
+
 # -------- TEST ENDPOINT --------
 @router.get("/test")
 def test_endpoint():
     return {"message": "Users router is working!"}
 
-# 🆕 ADD THIS: Test PUT endpoint
+
 @router.put("/test-put")
 def test_put_endpoint(
     username: str = Form(...),

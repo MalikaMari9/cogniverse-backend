@@ -39,6 +39,15 @@ class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
 
+# ---------- Password Change ----------
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class PasswordChangeResponse(BaseModel):
+    message: str
+
+
 # ---------- Generic Message ----------
 class MessageResponse(BaseModel):
     message: str
