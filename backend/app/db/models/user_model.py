@@ -1,5 +1,5 @@
 #app.db.model.user_model.py
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey, LargeBinary
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 import enum
@@ -20,7 +20,7 @@ class User(Base):
     email = Column(String(100), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="user")
-    profile_image_url = Column(LargeBinary, nullable=True)  # <-- updated
+    profile_image_url = Column(Text)
     stripe_customer_id = Column(String(100))
     status = Column(Enum(UserStatus), default=UserStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())

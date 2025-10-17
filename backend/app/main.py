@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.database import init_db
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 init_db()
 
@@ -27,6 +29,19 @@ app.add_middleware(
 def root():
     return {"message": f"{settings.app_name} v{settings.app_version} is running 🚀"}
 
+# 🆕 ADD THIS: Debug endpoint to test if users router is working
+@app.get("/debug-routes")
+def debug_routes():
+    """List all registered routes to debug the 404 issue"""
+    routes = []
+    for route in app.routes:
+        route_info = {
+            "path": getattr(route, "path", "N/A"),
+            "methods": getattr(route, "methods", "N/A"),
+            "name": getattr(route, "name", "N/A")
+        }
+        routes.append(route_info)
+    return {"registered_routes": routes}
 
 # --- Optional: DB connectivity check endpoint ---
 @app.get("/ping-db")
@@ -39,13 +54,29 @@ def ping_db():
             return {"status": "ok", "time": str(result.scalar())}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+    
+# Mount static files directory
+static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-from app.routes import auth_routes
-app.include_router(auth_routes.router)
+# 🆕 ADD THIS: Print debug info when routes are included
+print("🔄 Registering routes...")
 
-from app.routes import user_profile_routes
-app.include_router(user_profile_routes.router)
+try:
+    from app.routes import auth_routes
+    app.include_router(auth_routes.router)
+    print("✅ Auth routes registered")
+except Exception as e:
+    print(f"❌ Auth routes failed: {e}")
 
+try:
+    from app.routes import user_profile_routes
+    app.include_router(user_profile_routes.router)
+    print("✅ User profile routes registered")
+except Exception as e:
+    print(f"❌ User profile routes failed: {e}")
+
+# ... rest of your route imports
 from app.routes import project_routes
 app.include_router(project_routes.router)
 
@@ -90,3 +121,26 @@ app.include_router(memory_routes.router)
 
 from app.routes import weaver_routes
 app.include_router(weaver_routes.router)
+
+print("🎯 All routes registered!")
+
+@app.get("/debug-all-routes")
+def debug_all_routes():
+    """Debug endpoint to see ALL registered routes and methods"""
+    routes_info = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            route_info = {
+                "path": route.path,
+                "methods": list(route.methods),
+                "name": getattr(route, "name", "N/A")
+            }
+            routes_info.append(route_info)
+    
+    # Filter for /users/profile routes specifically
+    profile_routes = [r for r in routes_info if "/users/profile" in r["path"]]
+    
+    return {
+        "all_routes": routes_info,
+        "profile_routes": profile_routes  # Focus on the problematic route
+    }
