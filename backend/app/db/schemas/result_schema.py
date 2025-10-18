@@ -13,6 +13,7 @@ class ResultType(str, Enum):
     text = "text"
     summary = "summary"
     log = "log"
+    thought = "thought"
 
 class ResultBase(BaseModel):
     projectagentid: int
@@ -40,4 +41,4 @@ class ResultResponse(ResultBase):
     deleted_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True

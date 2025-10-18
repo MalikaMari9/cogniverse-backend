@@ -24,14 +24,22 @@ def create_project_agent(db: Session, project_agent_data: ProjectAgentCreate):
         )
         .first()
     )
-    if existing:
-        raise HTTPException(status_code=400, detail="Agent already assigned to this project")
 
+    # ✅ If already exists, just update its snapshot + status instead of throwing
+    if existing:
+        existing.agentsnapshot = project_agent_data.agentsnapshot
+        existing.status = project_agent_data.status
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    # ✅ Otherwise, create a new one
     new_project_agent = ProjectAgent(**project_agent_data.dict())
     db.add(new_project_agent)
     db.commit()
     db.refresh(new_project_agent)
     return new_project_agent
+
 
 
 def update_project_agent(db: Session, projagentid: int, project_agent_data: ProjectAgentUpdate):

@@ -36,3 +36,21 @@ def delete_result(db: Session, resultid: int):
     db.delete(result)
     db.commit()
     return {"message": "Result deleted successfully"}
+
+# -------------------------------------------
+# LIST RESULTS BY PROJECT AGENT + SCENARIO + TYPE
+# -------------------------------------------
+def list_results_by_agent_scenario_type(db: Session, projectagentid: int, scenarioid: int, resulttype: str):
+    results = (
+        db.query(Result)
+        .filter(
+            Result.projectagentid == projectagentid,
+            Result.scenarioid == scenarioid,
+            Result.resulttype == resulttype,
+        )
+        .order_by(Result.sequence_no.asc())
+        .all()
+    )
+    if not results:
+        raise HTTPException(status_code=404, detail="No matching results found")
+    return results

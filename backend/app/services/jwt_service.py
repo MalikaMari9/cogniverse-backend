@@ -103,3 +103,20 @@ def is_token_revoked(token: str) -> bool:
             {"token": token},
         ).fetchone()
         return bool(result)
+
+
+def verify_refresh_token(token: str):
+    """Validate a refresh token and ensure it’s not revoked."""
+    try:
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+
+        # Check if token expired or revoked
+        if is_token_revoked(token):
+            raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )

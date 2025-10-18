@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.controllers.auth_controller import register_user, login_user, logout_user
+from app.controllers.auth_controller import register_user, login_user, logout_user, refresh_access_token
 from app.services.jwt_service import get_current_user, security
 from app.db.schemas.user_schema import (
     UserCreate,
     UserLogin,
     UserResponse,
     LoginResponse,
-    MessageResponse,
+    MessageResponse, 
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -29,7 +29,8 @@ def login_route(data: UserLogin, db: Session = Depends(get_db)):
 # -------- VERIFY TOKEN (Optional Debug) --------
 @router.get("/verify", response_model=MessageResponse)
 def verify_token_route(current_user: dict = Depends(get_current_user)):
-    return {"message": f"Token is valid ✅ for user {current_user['user_id']}"}
+    return {"message": f"Token is valid ✅ for user {current_user.userid}"}
+
 
 
 # -------- LOGOUT --------
@@ -38,4 +39,15 @@ def logout_route(
     credentials=Depends(security), current_user: dict = Depends(get_current_user)
 ):
     token = credentials.credentials
-    return logout_user(token, current_user["user_id"])
+    return logout_user(token, current_user.userid)
+
+
+# ---------------- Refresh ----------------
+@router.post("/refresh")
+def refresh(request: Request, db: Session = Depends(get_db)):
+    """
+    Called when access token expires.
+    The frontend should send Authorization: Bearer <refresh_token>
+    """
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    return refresh_access_token(db, token)

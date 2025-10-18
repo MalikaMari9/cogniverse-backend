@@ -26,3 +26,11 @@ def update(result_id: int, result: ResultUpdate, db: Session = Depends(get_db)):
 @router.delete("/{result_id}")
 def delete(result_id: int, db: Session = Depends(get_db)):
     return result_controller.delete_result(db, result_id)
+@router.get("/agent/{projectagentid}/scenario/{scenarioid}/type/{resulttype}", response_model=List[ResultResponse])
+def get_results_by_agent_scenario_type(
+    projectagentid: int,
+    scenarioid: int,
+    resulttype: str,
+    db: Session = Depends(get_db),
+):
+    return result_controller.list_results_by_agent_scenario_type(db, projectagentid, scenarioid, resulttype)

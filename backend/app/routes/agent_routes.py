@@ -4,6 +4,7 @@ from typing import List
 from app.db.schemas.agent_schema import AgentCreate, AgentUpdate, AgentResponse
 from app.controllers import agent_controller
 from app.db.database import get_db
+from app.services.jwt_service import get_current_user
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
 
@@ -19,7 +20,13 @@ def get_agent(agent_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=AgentResponse, status_code=201)
-def create_agent(agent: AgentCreate, db: Session = Depends(get_db)):
+def create_agent(
+    agent: AgentCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    # Inject the logged-in user's ID from JWT
+    agent.userid = current_user.userid
     return agent_controller.create_agent(agent, db)
 
 
