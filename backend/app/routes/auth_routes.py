@@ -43,11 +43,11 @@ def logout_route(
 
 
 # ---------------- Refresh ----------------
-@router.post("/refresh", response_model=LoginResponse)
+@router.post("/refresh")
 def refresh(request: Request, db: Session = Depends(get_db)):
-    token = request.headers.get("Authorization", "")
-    if not token.startswith("Bearer "):
-        raise HTTPException(status_code=400, detail="Missing or invalid Authorization header")
-
-    refresh_token = token.replace("Bearer ", "")
-    return refresh_access_token(db, refresh_token)
+    """
+    Called when access token expires.
+    The frontend should send Authorization: Bearer <refresh_token>
+    """
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    return refresh_access_token(db, token)
