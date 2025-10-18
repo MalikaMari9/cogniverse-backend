@@ -21,7 +21,7 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     userid: int
     role: str
-    profile_image_url: Optional[str]
+    profile_image_url: Optional[str] = None  # base64 string
     status: str
     created_at: datetime
     updated_at: datetime
@@ -38,6 +38,15 @@ class LoginResponse(BaseModel):
     message: str
     access_token: str
     refresh_token: str
+
+# ---------- Password Change ----------
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class PasswordChangeResponse(BaseModel):
+    message: str
+
 
 # ---------- Generic Message ----------
 class MessageResponse(BaseModel):
