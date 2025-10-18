@@ -12,7 +12,7 @@ class AccessLevel(str, enum.Enum):
     none = "none"
     read = "read"
     write = "write"
-    full = "full"
+    
 
 class AccessControl(Base):
     __tablename__ = "access_control_tbl"
