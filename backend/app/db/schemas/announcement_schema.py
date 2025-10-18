@@ -26,6 +26,7 @@ class AnnouncementResponse(AnnouncementBase):
     announcementid: int
     created_at: datetime
     updated_at: Optional[datetime]
+    created_by_username: Optional[str] = None  # Add this field
 
     class Config:
         from_attributes = True
