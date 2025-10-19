@@ -4,6 +4,8 @@ from app.core.config import settings
 from app.db.database import init_db
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from app.middleware.logging_middleware import LoggingMiddleware #added for logging middleware
+
 
 init_db()
 
@@ -11,6 +13,9 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
 )
+
+# Add logging middleware
+app.add_middleware(LoggingMiddleware)
 
 # --- CORS (temporary open; restrict later) ---
 origins = [
