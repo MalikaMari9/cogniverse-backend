@@ -1,14 +1,13 @@
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
 import enum
-
 
 class LifecycleStatus(str, enum.Enum):
     active = "active"
     inactive = "inactive"
     archived = "archived"
-
 
 class SystemLog(Base):
     __tablename__ = "system_log_tbl"
@@ -21,3 +20,6 @@ class SystemLog(Base):
     browser_info = Column(String(200))
     status = Column(Enum(LifecycleStatus), default=LifecycleStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    
+    # Add relationship to User
+    user = relationship("User", backref="system_logs", lazy="joined")
