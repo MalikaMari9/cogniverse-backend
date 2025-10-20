@@ -1,18 +1,19 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
-from enum import Enum
+import enum
 
-class LifecycleStatus(str, Enum):
+
+class LifecycleStatus(str, enum.Enum):
     active = "active"
-    inactive = "inactive"
     archived = "archived"
+    deleted = "deleted"
 
-class AccessLevel(str, Enum):
+class AccessLevel(str, enum.Enum):
     none = "none"
     read = "read"
     write = "write"
-    full = "full"
+
 
 class AccessControlBase(BaseModel):
     module_key: str = Field(..., max_length=100)

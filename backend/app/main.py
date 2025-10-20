@@ -5,7 +5,8 @@ from app.db.database import init_db
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.middleware.logging_middleware import LoggingMiddleware #added for logging middleware
-
+from app.db.database import get_db
+from app.db.seed.access_control_seed import seed_access_controls
 
 init_db()
 
@@ -155,10 +156,22 @@ app.include_router(weaver_routes.router)
 from app.routes import maintenance_routes
 app.include_router(maintenance_routes.router)
 
+from app.routes import permissions_routes
+app.include_router(permissions_routes.router)
+
 
 print("🎯 All routes registered!")
 
-
+# ✅ Seed default access control records (runs once at startup)
+@app.on_event("startup")
+def seed_defaults():
+    try:
+        db = next(get_db())
+        seed_access_controls(db)
+    except Exception as e:
+        print(f"❌ Access Control seeding failed: {e}")
+    finally:
+        db.close()
 
 
 @app.get("/debug-all-routes")
