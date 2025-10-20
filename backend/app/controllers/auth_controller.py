@@ -4,7 +4,7 @@ from app.db.models.user_model import User
 from app.services.jwt_service import create_access_token, create_refresh_token, revoke_token, verify_refresh_token
 from app.services.utils.auth_utils import hash_password, verify_password
 from app.db.schemas.user_schema import UserCreate, UserLogin
-
+from app.services.utils.config_helper import get_int_config
 
 # -------------------------------------------
 # REGISTER USER
@@ -49,8 +49,8 @@ def login_user(db: Session, data: UserLogin):
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    access_token = create_access_token({"user_id": user.userid, "role": user.role})
-    refresh_token = create_refresh_token({"user_id": user.userid, "role": user.role})
+    access_token = create_access_token({"user_id": user.userid, "role": user.role}, db=db)
+    refresh_token = create_refresh_token({"user_id": user.userid, "role": user.role},db=db)
 
     return {
         "message": "Login successful",
@@ -75,33 +75,42 @@ def logout_user(token: str, user_id: int):
 # -------------------------------------------
 
 
+# -------------------------------------------
+# REFRESH ACCESS TOKEN
+# -------------------------------------------
+
+
+
 def refresh_access_token(db: Session, refresh_token: str):
     """
     Validate a refresh token and issue a new access token.
-    Future scalability:
-      - Can be extended with session_tbl for per-device refresh management.
-      - Can track refresh usage timestamps for analytics or limits.
+    Dynamically respects config_tbl values for expiry durations.
     """
     try:
-        # Verify refresh token validity
+        # ✅ Verify refresh token validity (decode + check revocation)
         payload = verify_refresh_token(refresh_token)
         user_id = payload.get("user_id")
 
         if not user_id:
             raise HTTPException(status_code=400, detail="Invalid token payload")
 
-        # Ensure user still exists
+        # ✅ Ensure user still exists
         user = db.query(User).filter(User.userid == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Issue a new short-lived access token
-        new_access_token = create_access_token({"user_id": user.userid, "role": user.role})
+        # ✅ Get access token lifetime dynamically
+        expiry_minutes = get_int_config(db, "accessTokenExpiryMinutes", 15)
+
+        # ✅ Issue a new short-lived access token
+        new_access_token = create_access_token(
+            {"user_id": user.userid, "role": user.role}, db=db
+        )
 
         return {
             "message": "Access token refreshed successfully",
             "access_token": new_access_token,
-            "expires_in": 15 * 60,  # seconds (15 minutes)
+            "expires_in": expiry_minutes * 60,  # seconds
         }
 
     except Exception as e:

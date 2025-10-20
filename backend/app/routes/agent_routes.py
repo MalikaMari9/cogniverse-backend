@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.schemas.agent_schema import AgentCreate, AgentUpdate, AgentResponse
@@ -38,3 +38,15 @@ def update_agent(agent_id: int, agent: AgentUpdate, db: Session = Depends(get_db
 @router.delete("/{agent_id}")
 def delete_agent(agent_id: int, db: Session = Depends(get_db)):
     return agent_controller.delete_agent(agent_id, db)
+
+@router.get("/user/{user_id}", response_model=List[AgentResponse])
+def get_agents_by_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Return all agents created by the given user (must match current user)."""
+    # ✅ Ensure users can only access their own agents
+    if current_user.userid != user_id:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    return agent_controller.get_agents_by_user(user_id, db)

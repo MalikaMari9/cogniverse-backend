@@ -18,14 +18,7 @@ def get_agent_by_id(agent_id: int, db: Session):
 
 
 def create_agent(agent_data: AgentCreate, db: Session):
-    """Create a new agent, ensuring agentName is unique."""
-    existing = db.query(Agent).filter(Agent.agentname == agent_data.agentname).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Agent with this name already exists"
-        )
-
+    """Create a new agent (allow duplicate names)."""
     new_agent = Agent(**agent_data.model_dump())
     db.add(new_agent)
     db.commit()
@@ -38,15 +31,6 @@ def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
     agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-
-    # Prevent duplicate name conflicts
-    if agent_data.agentname:
-        existing = db.query(Agent).filter(
-            Agent.agentname == agent_data.agentname,
-            Agent.agentid != agent_id
-        ).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Agent name already taken")
 
     # Update only provided fields
     for key, value in agent_data.model_dump(exclude_unset=True).items():
@@ -66,3 +50,8 @@ def delete_agent(agent_id: int, db: Session):
     db.delete(agent)
     db.commit()
     return {"detail": "Agent deleted successfully"}
+
+def get_agents_by_user(user_id: int, db: Session):
+    """Retrieve all agents belonging to a specific user."""
+    agents = db.query(Agent).filter(Agent.userid == user_id).all()
+    return agents

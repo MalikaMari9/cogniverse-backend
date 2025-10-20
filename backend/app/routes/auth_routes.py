@@ -37,6 +37,7 @@ async def register_route(
                 request=request,
                 status="active"
             )
+        print("am here")    
         
         return result
         

@@ -9,36 +9,35 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.database import engine, get_db
 from app.db.models.user_model import User
+from app.services.utils.config_helper import get_int_config
+from app.db.database import engine
+print("🔍 DB URL:", str(engine.url))
+
+
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 security = HTTPBearer()  # looks for Authorization: Bearer <token>
 
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": int(expire.timestamp())})
-
-    # Always set sub
-    if "userid" in data:
-        to_encode["sub"] = str(data["userid"])
-    elif "user_id" in data:
-        to_encode["sub"] = str(data["user_id"])
-    else:
+def create_access_token(data: dict, db: Session):  # <- no default
+    minutes = get_int_config(db, "accessTokenExpiryMinutes", ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    to_encode = {
+        **data,
+        "exp": int(expire.timestamp()),
+        "sub": str(data.get("userid") or data.get("user_id")),
+        "token_type": "access",
+    }
+    if not to_encode["sub"]:
         raise ValueError("Missing user id for JWT")
-    
     return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
-def create_refresh_token(data: dict):
-    """
-    Create a JWT refresh token with 'exp' claim.
-    """
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": int(expire.timestamp())})
+def create_refresh_token(data: dict, db: Session):  # <- no default
+    days = get_int_config(db, "refreshTokenExpiryDays", REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=days)
+    to_encode = {**data, "exp": int(expire.timestamp()), "token_type": "refresh"}
     return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
-
 def verify_token(token: str):
     """
     Decode the token and check if it's revoked.
@@ -47,7 +46,7 @@ def verify_token(token: str):
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
         # Check if token is revoked
-        from app.services.jwt_service import is_token_revoked
+        
         if is_token_revoked(token):
             raise HTTPException(status_code=401, detail="Token has been revoked")
 

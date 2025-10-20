@@ -37,6 +37,28 @@ app.add_middleware(
 def root():
     return {"message": f"{settings.app_name} v{settings.app_version} is running 🚀"}
 
+# -----------------------------------------------
+# ✅ CONFIG DEBUG: Test DB connection + config fetch
+# -----------------------------------------------
+from app.db.database import get_db
+from app.services.utils.config_helper import get_config_value
+from sqlalchemy.orm import Session
+
+@app.on_event("startup")
+def debug_config_startup():
+    print("🧩 [CONFIG DEBUG] Checking config_tbl values...")
+    try:
+        db: Session = next(get_db())
+        company = get_config_value(db, "companyName", "DefaultName")
+        access_exp = get_config_value(db, "accessTokenExpiryMinutes", "N/A")
+        print(f"🧩 companyName = {company}")
+        print(f"🧩 accessTokenExpiryMinutes = {access_exp}")
+    except Exception as e:
+        print(f"❌ CONFIG DEBUG ERROR: {e}")
+    finally:
+        db.close()
+
+
 # 🆕 ADD THIS: Debug endpoint to test if users router is working
 @app.get("/debug-routes")
 def debug_routes():
@@ -130,7 +152,14 @@ app.include_router(memory_routes.router)
 from app.routes import weaver_routes
 app.include_router(weaver_routes.router)
 
+from app.routes import maintenance_routes
+app.include_router(maintenance_routes.router)
+
+
 print("🎯 All routes registered!")
+
+
+
 
 @app.get("/debug-all-routes")
 def debug_all_routes():
