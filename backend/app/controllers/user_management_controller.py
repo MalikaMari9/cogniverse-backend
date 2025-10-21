@@ -116,23 +116,60 @@ def change_user_status(db: Session, user_id: int, status_data: UserStatusUpdate)
     db.refresh(user)
     return user
 
-def delete_user(db: Session, user_id: int) -> None:
-    """Soft delete a user"""
+def delete_user(db: Session, user_id: int, current_user_id: int) -> None:
+    """Soft delete a user with protection"""
     user = db.query(User).filter(User.userid == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get current user
+    current_user = db.query(User).filter(User.userid == current_user_id).first()
+    
+    # Prevent users from deleting themselves
+    if user_id == current_user_id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    
+    # Prevent non-superadmins from deleting admins and superadmins
+    if current_user.role != "superadmin":
+        if user.role in ["admin", "superadmin"]:
+            raise HTTPException(
+                status_code=403, 
+                detail="You do not have permission to delete admin users"
+            )
     
     user.status = UserStatus.deleted
     db.commit()
 
-def hard_delete_user(db: Session, user_id: int) -> None:
-    """Permanently delete a user (admin only)"""
+def hard_delete_user(db: Session, user_id: int, current_user_id: int) -> None:
+    """Permanently delete a user with protection"""
     user = db.query(User).filter(User.userid == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    db.delete(user)
-    db.commit()
+    # Get current user
+    current_user = db.query(User).filter(User.userid == current_user_id).first()
+    
+    # Prevent users from deleting themselves
+    if user_id == current_user_id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    
+    # Only superadmins can hard delete admins and superadmins
+    if current_user.role != "superadmin":
+        if user.role in ["admin", "superadmin"]:
+            raise HTTPException(
+                status_code=403, 
+                detail="Only superadmins can permanently delete admin users"
+            )
+    
+    try:
+        db.delete(user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Could not delete user due to database constraints: {str(e)}"
+        )
 
 def bulk_change_status(db: Session, user_ids: List[int], new_status: UserStatus) -> dict:
     """Bulk change user status"""

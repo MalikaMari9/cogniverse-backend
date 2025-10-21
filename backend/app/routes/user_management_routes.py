@@ -309,11 +309,10 @@ async def soft_delete_user(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
-        user = get_user_by_id(db, user_id)
-        delete_user(db, user_id)
         
-        # Log user deletion
+        user = get_user_by_id(db, user_id)
+        delete_user(db, user_id, current_user.userid)  # Pass current user ID
+        
         await system_logger.log_action(
             db=db,
             action_type="USER_DELETE",
@@ -359,11 +358,10 @@ async def permanent_delete_user(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
-        user = get_user_by_id(db, user_id)
-        hard_delete_user(db, user_id)
         
-        # Log hard deletion
+        user = get_user_by_id(db, user_id)
+        hard_delete_user(db, user_id, current_user.userid)  # Pass current user ID
+        
         await system_logger.log_action(
             db=db,
             action_type="USER_HARD_DELETE",
