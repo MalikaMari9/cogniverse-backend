@@ -7,6 +7,8 @@ from pathlib import Path
 from app.middleware.logging_middleware import LoggingMiddleware #added for logging middleware
 from app.db.database import get_db
 from app.db.seed.access_control_seed import seed_access_controls
+from app.db.seed.config_seed import seed_configs
+from app.db.seed.maintenance_seed import seed_maintenance
 
 init_db()
 
@@ -168,6 +170,8 @@ def seed_defaults():
     try:
         db = next(get_db())
         seed_access_controls(db)
+        seed_configs(db)
+        seed_maintenance(db)
     except Exception as e:
         print(f"❌ Access Control seeding failed: {e}")
     finally:
