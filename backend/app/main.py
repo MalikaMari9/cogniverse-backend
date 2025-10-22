@@ -161,6 +161,11 @@ app.include_router(maintenance_routes.router)
 from app.routes import permissions_routes
 app.include_router(permissions_routes.router)
 
+from app.routes import user_management_routes
+app.include_router(user_management_routes.router)
+
+
+
 
 print("🎯 All routes registered!")
 
