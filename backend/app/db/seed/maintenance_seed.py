@@ -37,6 +37,12 @@ def seed_maintenance(db: Session):
             "message": "Notification service temporarily disabled",
             "updated_by": 6,
         },
+        {
+            "module_key": "Profile",
+            "under_maintenance": False,
+            "message": "Profile service temporarily disabled",
+            "updated_by": 6,
+        },
     ]
 
     added = 0
