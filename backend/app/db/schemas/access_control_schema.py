@@ -7,7 +7,7 @@ import enum
 class LifecycleStatus(str, enum.Enum):
     active = "active"
     archived = "archived"
-    deleted = "deleted"
+    inactive = "inactive"
 
 class AccessLevel(str, enum.Enum):
     none = "none"
@@ -23,6 +23,7 @@ class AccessControlBase(BaseModel):
     superadmin_access: Optional[AccessLevel] = AccessLevel.none
     is_critical: Optional[bool] = False
     status: Optional[LifecycleStatus] = LifecycleStatus.active
+    
 
 class AccessControlCreate(AccessControlBase):
     pass
@@ -34,11 +35,13 @@ class AccessControlUpdate(BaseModel):
     superadmin_access: Optional[AccessLevel] = None
     is_critical: Optional[bool] = None
     status: Optional[LifecycleStatus] = None
+    is_deleted: Optional[bool] = None
 
 class AccessControlResponse(AccessControlBase):
     accessid: int
     created_at: datetime
     updated_at: Optional[datetime]
+    is_deleted: Optional[bool] = False
 
     class Config:
         from_attributes = True

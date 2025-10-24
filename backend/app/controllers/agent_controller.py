@@ -1,24 +1,37 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from datetime import datetime
 from app.db.models.agent_model import Agent, LifecycleStatus
 from app.db.schemas.agent_schema import AgentCreate, AgentUpdate
 
 
-def get_all_agents(db: Session):
-    """Retrieve all agents."""
-    return db.query(Agent).all()
+# =========================================================
+# 🔹 GET ALL
+# =========================================================
+def get_all_agents(db: Session, include_deleted: bool = False):
+    """Retrieve all agents (excluding soft-deleted by default)."""
+    query = db.query(Agent)
+    if not include_deleted:
+        query = query.filter(Agent.is_deleted == False)
+    return query.all()
 
 
+# =========================================================
+# 🔹 GET BY ID
+# =========================================================
 def get_agent_by_id(agent_id: int, db: Session):
     """Retrieve a single agent by ID."""
-    agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentid == agent_id, Agent.is_deleted == False).first()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Agent not found or deleted")
     return agent
 
 
+# =========================================================
+# 🔹 CREATE
+# =========================================================
 def create_agent(agent_data: AgentCreate, db: Session):
-    """Create a new agent (allow duplicate names)."""
+    """Create a new agent."""
     new_agent = Agent(**agent_data.model_dump())
     db.add(new_agent)
     db.commit()
@@ -26,13 +39,15 @@ def create_agent(agent_data: AgentCreate, db: Session):
     return new_agent
 
 
+# =========================================================
+# 🔹 UPDATE
+# =========================================================
 def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
     """Update agent information."""
-    agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
+    agent = db.query(Agent).filter(Agent.agentid == agent_id, Agent.is_deleted == False).first()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Agent not found or has been deleted")
 
-    # Update only provided fields
     for key, value in agent_data.model_dump(exclude_unset=True).items():
         setattr(agent, key, value)
 
@@ -41,17 +56,46 @@ def update_agent(agent_id: int, agent_data: AgentUpdate, db: Session):
     return agent
 
 
+# =========================================================
+# 🔹 SOFT DELETE
+# =========================================================
 def delete_agent(agent_id: int, db: Session):
-    """Delete an agent by ID."""
+    """Soft delete an agent (mark as deleted)."""
+    agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # If already deleted, no need to repeat
+    if agent.is_deleted:
+        raise HTTPException(status_code=400, detail="Agent already deleted")
+
+    agent.is_deleted = True
+    agent.deleted_at = datetime.utcnow()
+    agent.status = LifecycleStatus.inactive
+    db.commit()
+    return {"detail": f"Agent {agent.agentid} marked as deleted"}
+
+
+# =========================================================
+# 🔹 HARD DELETE (for admin cleanup)
+# =========================================================
+def hard_delete_agent(agent_id: int, db: Session):
+    """Permanently delete an agent (admin use only)."""
     agent = db.query(Agent).filter(Agent.agentid == agent_id).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     db.delete(agent)
     db.commit()
-    return {"detail": "Agent deleted successfully"}
+    return {"detail": f"Agent {agent.agentid} permanently deleted"}
 
-def get_agents_by_user(user_id: int, db: Session):
+
+# =========================================================
+# 🔹 GET BY USER
+# =========================================================
+def get_agents_by_user(user_id: int, db: Session, include_deleted: bool = False):
     """Retrieve all agents belonging to a specific user."""
-    agents = db.query(Agent).filter(Agent.userid == user_id).all()
-    return agents
+    query = db.query(Agent).filter(Agent.userid == user_id)
+    if not include_deleted:
+        query = query.filter(Agent.is_deleted == False)
+    return query.all()

@@ -14,5 +14,6 @@ class Maintenance(Base):
     updated_by = Column(Integer, ForeignKey("user_tbl.userid"))
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     created_at = Column(TIMESTAMP, server_default=func.now())
-
+    is_deleted = Column(Boolean, default=False)
     updater = relationship("User", backref="maintenances", lazy="joined")
+    deleted_at = Column(TIMESTAMP)

@@ -13,6 +13,7 @@ class ProjectBase(BaseModel):
     projectname: str = Field(..., max_length=100)
     project_desc: Optional[str] = None
 
+
 class ProjectCreate(ProjectBase):
     pass
 
@@ -20,6 +21,9 @@ class ProjectUpdate(BaseModel):
     projectname: Optional[str] = Field(None, max_length=100)
     project_desc: Optional[str] = None
     status: Optional[ProjectStatus] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
+
 
 class ProjectResponse(ProjectBase):
     projectid: int
@@ -27,7 +31,9 @@ class ProjectResponse(ProjectBase):
     status: ProjectStatus
     created_at: datetime
     updated_at: Optional[datetime]
-    deleted_at: Optional[datetime]
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
+
 
     class Config:
         from_attributes = True  # Updated from orm_mode for Pydantic v2

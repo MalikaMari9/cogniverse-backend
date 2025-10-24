@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, ForeignKey, Enum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
@@ -19,6 +19,7 @@ class Announcement(Base):
     status = Column(Enum(LifecycleStatus), default=LifecycleStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
-
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(TIMESTAMP)
      # Add relationship to User model
     user = relationship("User", backref="announcements", lazy="joined")

@@ -32,6 +32,9 @@ class UserAdminUpdate(BaseModel):
     role: Optional[str] = None
     status: Optional[UserStatus] = None
     profile_image_url: Optional[str] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
+
 
 # ---------- Response ----------
 class UserResponse(UserBase):
@@ -42,6 +45,9 @@ class UserResponse(UserBase):
     stripe_customer_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
+
 
     model_config = ConfigDict(from_attributes=True)
 

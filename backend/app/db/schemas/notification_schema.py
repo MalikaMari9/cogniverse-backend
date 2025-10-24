@@ -10,6 +10,7 @@ class NotificationBase(BaseModel):
     related_entity_type: Optional[str] = Field(None, max_length=50)
     related_entity_id: Optional[int] = None
 
+
 class NotificationCreate(NotificationBase):
     pass
 
@@ -17,10 +18,16 @@ class NotificationUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=150)
     message: Optional[str] = None
     is_read: Optional[bool] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
+
 
 class NotificationResponse(NotificationBase):
     notificationid: int
     created_at: datetime
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
+
 
     class Config:
         from_attributes = True

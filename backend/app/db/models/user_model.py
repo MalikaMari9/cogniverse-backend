@@ -1,5 +1,5 @@
 #app.db.model.user_model.py
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 import enum
@@ -26,6 +26,6 @@ class User(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP, nullable=True)
-
+    is_deleted = Column(Boolean, default=False)
     def __repr__(self):
         return f"<User(userid={self.userid}, email='{self.email}', role='{self.role}')>"

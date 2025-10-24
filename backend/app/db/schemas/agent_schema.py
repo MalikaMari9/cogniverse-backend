@@ -23,6 +23,8 @@ class AgentBase(BaseModel):
     agentmotivation: Optional[str] = None
     userid: Optional[int] = None  # ✅ backend will inject
     status: Optional[LifecycleStatus] = LifecycleStatus.active
+    
+
 
 
 # ---------- CREATE SCHEMA ----------
@@ -40,6 +42,8 @@ class AgentUpdate(BaseModel):
     agentquirk: Optional[List[str]] = None
     agentmotivation: Optional[str] = None
     status: Optional[LifecycleStatus] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
 
 
 # ---------- RESPONSE SCHEMA ----------
@@ -47,7 +51,8 @@ class AgentResponse(AgentBase):
     agentid: int
     created_at: datetime
     updated_at: Optional[datetime]
-    deleted_at: Optional[datetime]
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

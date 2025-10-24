@@ -94,7 +94,8 @@ async def create_access_control(
         await log_action(
             db, request, current_user,
             "ACCESS_CONTROL_CREATE",
-            details=f"Created access control for module '{access.module_name}' with level '{access.access_level}'"
+            details=f"Created access control for module '{access.module_key}'"
+
         )
 
         return result

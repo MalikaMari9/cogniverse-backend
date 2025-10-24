@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, TIMESTAMP, Enum, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, ForeignKey, TIMESTAMP, Enum, JSON, UniqueConstraint, Boolean
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
 import enum
@@ -19,5 +19,5 @@ class ProjectAgent(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP)
-
+    is_deleted = Column(Boolean, default=False)
     __table_args__ = (UniqueConstraint("projectid", "agentid", name="uq_project_agent"),)

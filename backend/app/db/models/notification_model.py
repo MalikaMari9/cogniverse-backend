@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
 
@@ -13,3 +13,5 @@ class Notification(Base):
     related_entity_type = Column(String(50))
     related_entity_id = Column(Integer)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(TIMESTAMP)

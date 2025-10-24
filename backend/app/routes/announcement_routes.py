@@ -1,10 +1,10 @@
 # ===============================
-# app/routes/announcement_routes.py — Final Polished Version
+# app/routes/announcement_routes.py — Finalized Soft Delete Version
 # ===============================
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.db.schemas.announcement_schema import (
     AnnouncementCreate, AnnouncementUpdate, AnnouncementResponse
 )
@@ -25,14 +25,14 @@ router = APIRouter(prefix="/announcements", tags=["Announcements"])
 @router.get("/", response_model=List[AnnouncementResponse])
 async def get_all_announcements(
     request: Request,
+    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted announcements"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        # ✅ Check permission first
         enforce_permission_auto(db, current_user, "ANNOUNCEMENTS", request)
 
-        result = announcement_controller.get_all_announcements(db)
+        result = announcement_controller.get_all_announcements(db, include_deleted=include_deleted)
 
         # 🪶 Deduped log
         if dedupe_service.should_log_action("ANNOUNCEMENT_LIST_VIEW", current_user.userid):
@@ -42,7 +42,8 @@ async def get_all_announcements(
                 db=db,
                 action_type="ANNOUNCEMENT_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed announcements list ({total} total, {active} active)",
+                details=f"Viewed announcements list (include_deleted={include_deleted}) "
+                        f"({total} total, {active} active)",
                 request=request,
                 status="active"
             )
@@ -68,13 +69,16 @@ async def get_all_announcements(
 async def get_announcement(
     request: Request,
     announcement_id: int,
+    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted announcement"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
         enforce_permission_auto(db, current_user, "ANNOUNCEMENTS", request)
 
-        result = announcement_controller.get_announcement_by_id(announcement_id, db)
+        result = announcement_controller.get_announcement_by_id(
+            announcement_id, db, include_deleted=include_deleted
+        )
 
         cache_key = f"announcement_view_{announcement_id}"
         if dedupe_service.should_log_action("ANNOUNCEMENT_VIEW", current_user.userid, cache_key):
@@ -82,7 +86,8 @@ async def get_announcement(
                 db=db,
                 action_type="ANNOUNCEMENT_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed announcement '{result.title}' (ID: {announcement_id})",
+                details=f"Viewed announcement '{result.title}' (ID: {announcement_id}, "
+                        f"include_deleted={include_deleted})",
                 request=request,
                 status="active"
             )
@@ -185,9 +190,7 @@ async def update_announcement(
             if announcement.content and announcement.content != current_announcement.content:
                 updated_fields.append("content changed")
 
-            update_details = (
-                f"Updated announcement '{current_announcement.title}' (ID: {announcement_id})"
-            )
+            update_details = f"Updated announcement '{current_announcement.title}' (ID: {announcement_id})"
             if updated_fields:
                 update_details += f" - Changes: {', '.join(updated_fields)}"
 
@@ -225,7 +228,7 @@ async def update_announcement(
 
 
 # ===============================
-# 🔹 Delete Announcement
+# 🔹 Soft Delete Announcement
 # ===============================
 @router.delete("/{announcement_id}")
 async def delete_announcement(
@@ -245,9 +248,9 @@ async def delete_announcement(
                 db=db,
                 action_type="ANNOUNCEMENT_DELETE",
                 user_id=current_user.userid,
-                details=f"Deleted announcement '{announcement.title}' (ID: {announcement_id})",
+                details=f"Soft-deleted announcement '{announcement.title}' (ID: {announcement_id})",
                 request=request,
-                status="active"
+                status="inactive"
             )
 
         return result
@@ -268,6 +271,45 @@ async def delete_announcement(
             action_type="ANNOUNCEMENT_DELETE_ERROR",
             user_id=current_user.userid,
             details=f"Error deleting announcement ID {announcement_id}: {str(e)}",
+            request=request,
+            status="active"
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ===============================
+# 🔹 Hard Delete (Admin Only)
+# ===============================
+@router.delete("/{announcement_id}/purge")
+async def hard_delete_announcement(
+    request: Request,
+    announcement_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Permanent deletion for system admins."""
+    try:
+        enforce_permission_auto(db, current_user, "ANNOUNCEMENTS", request, admin_only=True)
+
+        result = announcement_controller.hard_delete_announcement(announcement_id, db)
+
+        await system_logger.log_action(
+            db=db,
+            action_type="ANNOUNCEMENT_PURGE",
+            user_id=current_user.userid,
+            details=f"Permanently deleted announcement ID {announcement_id}",
+            request=request,
+            status="inactive"
+        )
+
+        return result
+
+    except Exception as e:
+        await system_logger.log_action(
+            db=db,
+            action_type="ANNOUNCEMENT_PURGE_ERROR",
+            user_id=current_user.userid,
+            details=f"Error permanently deleting announcement ID {announcement_id}: {str(e)}",
             request=request,
             status="active"
         )

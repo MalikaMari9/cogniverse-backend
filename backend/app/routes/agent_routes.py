@@ -1,10 +1,11 @@
 # ===============================
-# app/routes/agent_routes.py — With Universal Route Logger
+# app/routes/agent_routes.py — With Soft Delete Support + Logging
 # ===============================
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 from app.db.schemas.agent_schema import AgentCreate, AgentUpdate, AgentResponse
 from app.controllers import agent_controller
@@ -22,17 +23,22 @@ router = APIRouter(prefix="/agents", tags=["Agents"])
 @router.get("/", response_model=List[AgentResponse])
 async def get_all_agents(
     request: Request,
+    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted agents if True"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """
+    Retrieve all agents.
+    By default excludes soft-deleted ones; admins can include deleted.
+    """
     try:
         enforce_permission_auto(db, current_user, "AGENTS", request)
-        result = agent_controller.get_all_agents(db)
+        result = agent_controller.get_all_agents(db, include_deleted=include_deleted)
 
         await log_action(
             db, request, current_user,
             "AGENT_LIST_VIEW",
-            details=f"Viewed all agents ({len(result)} records)"
+            details=f"Viewed all agents (include_deleted={include_deleted}, total={len(result)})"
         )
 
         return result
@@ -49,12 +55,21 @@ async def get_all_agents(
 async def get_agent(
     agent_id: int,
     request: Request,
+    include_deleted: Optional[bool] = Query(False),
+    
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """
+    Retrieve a single agent by ID.
+    Optionally include soft-deleted records (for admins).
+    """
     try:
         enforce_permission_auto(db, current_user, "AGENTS", request)
         agent = agent_controller.get_agent_by_id(agent_id, db)
+
+        if agent.is_deleted and not include_deleted:
+            raise HTTPException(status_code=404, detail="Agent not found (deleted)")
 
         await log_action(
             db, request, current_user,
@@ -83,6 +98,9 @@ async def create_agent(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """
+    Create a new agent for the logged-in user.
+    """
     try:
         enforce_permission_auto(db, current_user, "AGENTS", request)
         agent.userid = current_user.userid
@@ -115,11 +133,15 @@ async def update_agent(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """
+    Update agent details (cannot update soft-deleted ones).
+    """
     try:
         enforce_permission_auto(db, current_user, "AGENTS", request)
         old_data = agent_controller.get_agent_by_id(agent_id, db)
-        if not old_data:
-            raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+
+        if old_data.is_deleted:
+            raise HTTPException(status_code=400, detail="Cannot update a deleted agent")
 
         result = agent_controller.update_agent(agent_id, agent, db)
 
@@ -140,7 +162,7 @@ async def update_agent(
 
 
 # ============================================================
-# 🔹 DELETE AGENT (requires WRITE access)
+# 🔹 SOFT DELETE AGENT (requires WRITE access)
 # ============================================================
 @router.delete("/{agent_id}")
 async def delete_agent(
@@ -149,17 +171,20 @@ async def delete_agent(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """
+    Soft delete an agent (mark as deleted, keep relations intact).
+    """
     try:
         enforce_permission_auto(db, current_user, "AGENTS", request)
-        agent_controller.delete_agent(agent_id, db)
+        result = agent_controller.delete_agent(agent_id, db)
 
         await log_action(
             db, request, current_user,
             "AGENT_DELETE",
-            details=f"Deleted agent ID {agent_id}"
+            details=f"Soft deleted agent ID {agent_id}"
         )
 
-        return {"message": f"Agent {agent_id} deleted successfully"}
+        return result
 
     except HTTPException as e:
         await log_error(db, request, current_user, "AGENT_DELETE_FAILED", e, f"Failed to delete agent {agent_id}")
@@ -175,10 +200,15 @@ async def delete_agent(
 @router.get("/user/{user_id}", response_model=List[AgentResponse])
 async def get_agents_by_user(
     user_id: int,
-    request: Request,
+    include_deleted: Optional[bool] = Query(False),
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """
+    Retrieve all agents belonging to a specific user.
+    Excludes deleted by default; include_deleted=True for admin.
+    """
     try:
         enforce_permission_auto(db, current_user, "AGENTS", request)
 
@@ -186,12 +216,12 @@ async def get_agents_by_user(
         if current_user.role != "admin" and current_user.userid != user_id:
             raise HTTPException(status_code=403, detail="Access forbidden")
 
-        result = agent_controller.get_agents_by_user(user_id, db)
+        result = agent_controller.get_agents_by_user(user_id, db, include_deleted=include_deleted)
 
         await log_action(
             db, request, current_user,
             "AGENT_LIST_BY_USER",
-            details=f"Viewed agents belonging to user ID {user_id}"
+            details=f"Viewed agents of user ID {user_id} (include_deleted={include_deleted})"
         )
 
         return result

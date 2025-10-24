@@ -22,6 +22,7 @@ class AgentRelation(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP)
+    is_deleted = Column(Boolean, default=False)
 
     __table_args__ = (
         CheckConstraint("agenta_id <> agentb_id", name="check_distinct_agents"),

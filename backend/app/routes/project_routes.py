@@ -1,10 +1,10 @@
 # ===============================
-# app/routes/project_routes.py — With Universal Logging
+# app/routes/project_routes.py — Soft Delete Integrated
 # ===============================
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.db.database import get_db
 from app.controllers.project_controller import (
@@ -13,6 +13,7 @@ from app.controllers.project_controller import (
     get_project_by_id,
     update_project,
     delete_project,
+    hard_delete_project,
 )
 from app.db.schemas.project_schema import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.services.jwt_service import get_current_user
@@ -57,17 +58,18 @@ async def create_new_project(
 @router.get("/", response_model=List[ProjectResponse])
 async def get_all_projects(
     request: Request,
+    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted projects"),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
         enforce_permission_auto(db, current_user, "PROJECTS", request)
-        result = get_user_projects(db, current_user.userid)
+        result = get_user_projects(db, current_user.userid, include_deleted=include_deleted)
 
         await log_action(
             db, request, current_user,
             "PROJECT_LIST_VIEW",
-            details=f"Viewed all projects for user ID {current_user.userid}"
+            details=f"Viewed all projects for user ID {current_user.userid} (include_deleted={include_deleted})"
         )
         return result
 
@@ -83,17 +85,18 @@ async def get_all_projects(
 async def get_project(
     project_id: int,
     request: Request,
+    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted project"),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
         enforce_permission_auto(db, current_user, "PROJECTS", request)
-        project = get_project_by_id(db, project_id, current_user.userid)
+        project = get_project_by_id(db, project_id, current_user.userid, include_deleted=include_deleted)
 
         await log_action(
             db, request, current_user,
             "PROJECT_VIEW",
-            details=f"Viewed project ID {project_id} ('{project.projectname}')",
+            details=f"Viewed project ID {project_id} ('{project.projectname}', include_deleted={include_deleted})",
             dedupe_key=f"project_{project_id}"
         )
         return project
@@ -141,7 +144,7 @@ async def update_existing_project(
 
 
 # ============================================================
-# 🔹 DELETE PROJECT (requires WRITE access)
+# 🔹 SOFT DELETE PROJECT (requires WRITE access)
 # ============================================================
 @router.delete("/{project_id}")
 async def remove_project(
@@ -152,18 +155,45 @@ async def remove_project(
 ):
     try:
         enforce_permission_auto(db, current_user, "PROJECTS", request)
-        delete_project(db, project_id, current_user.userid)
+        result = delete_project(db, project_id, current_user.userid)
 
         await log_action(
             db, request, current_user,
             "PROJECT_DELETE",
-            details=f"Deleted project ID {project_id}"
+            details=f"Soft-deleted project ID {project_id}"
         )
-        return {"message": f"Project {project_id} deleted successfully"}
+        return result
 
     except HTTPException as e:
         await log_error(db, request, current_user, "PROJECT_DELETE_FAILED", e, f"Failed to delete project {project_id}")
         raise e
     except Exception as e:
         await log_error(db, request, current_user, "PROJECT_DELETE_ERROR", e, f"Error deleting project {project_id}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============================================================
+# 🔹 HARD DELETE (Admin / Maintenance Cleanup)
+# ============================================================
+@router.delete("/{project_id}/purge")
+async def hard_remove_project(
+    project_id: int,
+    request: Request,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete a project (admin cleanup only)."""
+    try:
+        enforce_permission_auto(db, current_user, "PROJECTS", request, admin_only=True)
+        result = hard_delete_project(db, project_id, current_user.userid)
+
+        await log_action(
+            db, request, current_user,
+            "PROJECT_PURGE",
+            details=f"Permanently deleted project ID {project_id}"
+        )
+        return result
+
+    except Exception as e:
+        await log_error(db, request, current_user, "PROJECT_PURGE_ERROR", e, f"Error purging project {project_id}")
         raise HTTPException(status_code=500, detail="Internal server error")

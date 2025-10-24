@@ -17,6 +17,7 @@ class ContactBase(BaseModel):
     message: str
     is_resolved: Optional[bool] = False
     status: Optional[LifecycleStatus] = LifecycleStatus.active
+    
 
 
 class ContactCreate(ContactBase):
@@ -28,12 +29,15 @@ class ContactUpdate(BaseModel):
     message: Optional[str] = None
     is_resolved: Optional[bool] = None
     status: Optional[LifecycleStatus] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
 
 
 class ContactResponse(ContactBase):
     contactid: int
     created_at: datetime
     updated_at: Optional[datetime]
-
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
     class Config:
         from_attributes = True

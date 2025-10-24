@@ -1,38 +1,100 @@
-from fastapi import HTTPException
+# ===============================
+# app/controllers/scenario_controller.py — Soft Delete Ready
+# ===============================
+
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.db.models.scenario_model import Scenario
 from app.db.schemas.scenario_schema import ScenarioCreate, ScenarioUpdate
 
-def get_all_scenarios(db: Session):
-    return db.query(Scenario).all()
 
-def get_scenario_by_id(db: Session, scenarioid: int):
+# ============================================================
+# 🔹 GET ALL SCENARIOS
+# ============================================================
+def get_all_scenarios(db: Session, include_deleted: bool = False):
+    """Retrieve all scenarios (exclude deleted by default)."""
+    query = db.query(Scenario)
+    if not include_deleted:
+        query = query.filter(Scenario.is_deleted == False)
+    return query.order_by(Scenario.created_at.desc()).all()
+
+
+# ============================================================
+# 🔹 GET SINGLE SCENARIO
+# ============================================================
+def get_scenario_by_id(db: Session, scenarioid: int, include_deleted: bool = False):
+    """Retrieve a single scenario by ID."""
     scenario = db.query(Scenario).filter(Scenario.scenarioid == scenarioid).first()
-    if not scenario:
-        raise HTTPException(status_code=404, detail="Scenario not found")
+    if not scenario or (scenario.is_deleted and not include_deleted):
+        raise HTTPException(status_code=404, detail="Scenario not found or deleted")
     return scenario
 
-def create_scenario(db: Session, scenario_data: ScenarioCreate):
-    new_scenario = Scenario(**scenario_data.dict())
-    db.add(new_scenario)
-    db.commit()
-    db.refresh(new_scenario)
-    return new_scenario
 
+# ============================================================
+# 🔹 CREATE SCENARIO
+# ============================================================
+def create_scenario(db: Session, scenario_data: ScenarioCreate):
+    """Create a new scenario entry."""
+    try:
+        new_scenario = Scenario(**scenario_data.model_dump())
+        db.add(new_scenario)
+        db.commit()
+        db.refresh(new_scenario)
+        return new_scenario
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+# ============================================================
+# 🔹 UPDATE SCENARIO
+# ============================================================
 def update_scenario(db: Session, scenarioid: int, scenario_data: ScenarioUpdate):
+    """Update an existing scenario."""
     scenario = db.query(Scenario).filter(Scenario.scenarioid == scenarioid).first()
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
-    for key, value in scenario_data.dict(exclude_unset=True).items():
+
+    if scenario.is_deleted:
+        raise HTTPException(status_code=400, detail="Cannot update a deleted scenario")
+
+    for key, value in scenario_data.model_dump(exclude_unset=True).items():
         setattr(scenario, key, value)
+
     db.commit()
     db.refresh(scenario)
     return scenario
 
+
+# ============================================================
+# 🔹 SOFT DELETE SCENARIO
+# ============================================================
 def delete_scenario(db: Session, scenarioid: int):
+    """Soft delete a scenario instead of removing it permanently."""
     scenario = db.query(Scenario).filter(Scenario.scenarioid == scenarioid).first()
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
+
+    if scenario.is_deleted:
+        raise HTTPException(status_code=400, detail="Scenario already deleted")
+
+    scenario.is_deleted = True
+    scenario.deleted_at = datetime.utcnow()
+
+    db.commit()
+    return {"detail": f"Scenario {scenarioid} soft-deleted successfully"}
+
+
+# ============================================================
+# 🔹 HARD DELETE SCENARIO (Admin Only)
+# ============================================================
+def hard_delete_scenario(db: Session, scenarioid: int):
+    """Permanently delete a scenario (admin cleanup only)."""
+    scenario = db.query(Scenario).filter(Scenario.scenarioid == scenarioid).first()
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
     db.delete(scenario)
     db.commit()
-    return {"message": "Scenario deleted successfully"}
+    return {"detail": f"Scenario {scenarioid} permanently deleted"}

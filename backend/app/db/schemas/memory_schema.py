@@ -1,32 +1,44 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from enum import Enum
 
 
-# ---------- Base ----------
+# ---------- ENUM ----------
+class LifecycleStatus(str, Enum):
+    active = "active"
+    inactive = "inactive"
+    archived = "archived"
+
+
+# ---------- BASE ----------
 class MemoryBase(BaseModel):
     memorycontent: str
     agentid: int
     projectid: int
+    status: Optional[LifecycleStatus] = LifecycleStatus.active
 
 
-# ---------- Create ----------
+# ---------- CREATE ----------
 class MemoryCreate(MemoryBase):
     pass
 
 
-# ---------- Update ----------
+# ---------- UPDATE ----------
 class MemoryUpdate(BaseModel):
-    memorycontent: Optional[str]
-    status: Optional[str]
+    memorycontent: Optional[str] = None
+    status: Optional[LifecycleStatus] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
 
 
-# ---------- Response ----------
+# ---------- RESPONSE ----------
 class MemoryResponse(MemoryBase):
     memoryid: int
-    status: str
     created_at: datetime
     updated_at: datetime
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

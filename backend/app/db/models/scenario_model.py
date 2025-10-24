@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, ForeignKey, Enum, Boolean
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
 import enum
@@ -19,3 +19,4 @@ class Scenario(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP)
+    is_deleted = Column(Boolean, default=False)

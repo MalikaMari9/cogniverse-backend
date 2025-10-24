@@ -23,7 +23,7 @@ class ResultBase(BaseModel):
     confidence_score: Annotated[float, Field(ge=0, le=1, description="Confidence between 0 and 1")]
     resulttext: str
     status: Optional[LifecycleStatus] = LifecycleStatus.active
-
+ 
 class ResultCreate(ResultBase):
     pass
 
@@ -33,12 +33,17 @@ class ResultUpdate(BaseModel):
     confidence_score: Optional[Annotated[float, Field(ge=0, le=1)]] = None
     resulttext: Optional[str] = None
     status: Optional[LifecycleStatus] = None
+    is_deleted: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
 
 class ResultResponse(ResultBase):
     resultid: int
     created_at: datetime
     updated_at: Optional[datetime]
-    deleted_at: Optional[datetime]
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
+   
+
 
     class Config:
         from_attributes = True

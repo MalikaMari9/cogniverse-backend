@@ -6,7 +6,7 @@ import enum
 class LifecycleStatus(str, enum.Enum):
     active = "active"
     archived = "archived"
-    deleted = "deleted"
+    inactive = "inactive"
 
 class AccessLevel(str, enum.Enum):
     none = "none"
@@ -26,6 +26,6 @@ class AccessControl(Base):
     superadmin_access = Column(Enum(AccessLevel, name="access_level_enum", create_type=False), default=AccessLevel.none)
     is_critical = Column(Boolean, default=False)
     status = Column(Enum(LifecycleStatus, name="lifecycle_status", create_type=False), default=LifecycleStatus.active)
-
+    is_deleted = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

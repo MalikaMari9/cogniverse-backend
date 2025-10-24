@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Text, TIMESTAMP, Enum, ForeignKey
+from sqlalchemy import Column, Integer, Text, TIMESTAMP, Enum, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, declarative_base
 import enum
@@ -11,7 +11,7 @@ Base = declarative_base()
 class LifecycleStatus(str, enum.Enum):
     active = "active"
     archived = "archived"
-    deleted = "deleted"
+    inactive = "inactive"
 
 
 # -------------------------------------------
@@ -30,7 +30,7 @@ class Weaver(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP)
-
+    is_deleted = Column(Boolean, default=False)
     # Relationships
     agent = relationship("Agent", backref="weavers")
     project = relationship("Project", backref="weavers")

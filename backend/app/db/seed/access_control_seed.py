@@ -142,6 +142,24 @@ def seed_access_controls(db: Session):
             "is_critical": False,
             "status": LifecycleStatus.active,
         },
+        {
+            "module_key": "CONTACTS_SEND",
+            "module_desc": "Contact",
+            "user_access": AccessLevel.write,
+            "admin_access": AccessLevel.write,
+            "superadmin_access": AccessLevel.write,
+            "is_critical": False,
+            "status": LifecycleStatus.active,
+        },
+                {
+            "module_key": "CONTACTS",
+            "module_desc": "Contact",
+            "user_access": AccessLevel.none,
+            "admin_access": AccessLevel.read,
+            "superadmin_access": AccessLevel.write,
+            "is_critical": False,
+            "status": LifecycleStatus.active,
+        },
     ]
 
     added = 0

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum
+from sqlalchemy import Column, Integer,Boolean ,String, Text, TIMESTAMP, Enum
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
 import enum
@@ -18,3 +18,5 @@ class Config(Base):
     status = Column(Enum(LifecycleStatus), default=LifecycleStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(TIMESTAMP)

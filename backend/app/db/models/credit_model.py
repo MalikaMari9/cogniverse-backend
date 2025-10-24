@@ -8,7 +8,7 @@ from sqlalchemy import (
     Enum,
     Numeric,
     Date,
-    JSON,
+    JSON,Boolean
 )
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
@@ -44,7 +44,7 @@ class CreditConfig(Base):
     Enum(LifecycleStatus, name="lifecycle_status", create_type=False),
     default=LifecycleStatus.active
 )
-
+    is_deleted = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(
         TIMESTAMP, server_default=func.now(), onupdate=func.now()
@@ -69,7 +69,7 @@ class CreditTransaction(Base):
     status = Column(String(20), default="pending")
     remarks = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
-
+    is_deleted = Column(Boolean, default=False)
 
 # ------------------------------------------------------------
 # 3. billing_tbl — User Wallet (Free + Paid Credits)
@@ -85,8 +85,8 @@ class Billing(Base):
     status = status = Column(
     Enum(LifecycleStatus, name="lifecycle_status", create_type=False),
     default=LifecycleStatus.active
-)
-
+)   
+    is_deleted = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Enum, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.models.user_model import Base
@@ -20,6 +20,7 @@ class SystemLog(Base):
     browser_info = Column(String(200))
     status = Column(Enum(LifecycleStatus), default=LifecycleStatus.active)
     created_at = Column(TIMESTAMP, server_default=func.now())
-    
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(TIMESTAMP)
     # Add relationship to User
     user = relationship("User", backref="system_logs", lazy="joined")
