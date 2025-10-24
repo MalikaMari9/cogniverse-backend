@@ -43,6 +43,7 @@ async def get_active_credit_packs(db: Session = Depends(get_db)):
                 "config_key": p.config_key,
                 "config_value": p.config_value,
                 "description": p.description,
+                "stripe_link": p.config_value.get("stripe_price_id") if p.config_value else None,  # ✅ add this line
                 "status": p.status.value if hasattr(p.status, "value") else str(p.status),
                 "created_at": p.created_at.isoformat() if p.created_at else None,
                 "updated_at": p.updated_at.isoformat() if p.updated_at else None,

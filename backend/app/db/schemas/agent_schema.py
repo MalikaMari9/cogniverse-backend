@@ -56,3 +56,9 @@ class AgentResponse(AgentBase):
 
     class Config:
         from_attributes = True
+
+class PaginatedAgentsResponse(BaseModel):
+    agents: List[AgentResponse]
+    total_count: int
+    page: int
+    limit: int

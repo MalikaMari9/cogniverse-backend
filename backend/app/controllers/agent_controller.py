@@ -1,9 +1,11 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from datetime import datetime
+from sqlalchemy import func
+from typing import Optional 
 from app.db.models.agent_model import Agent, LifecycleStatus
 from app.db.schemas.agent_schema import AgentCreate, AgentUpdate
-
+from app.services.utils.config_helper import get_int_config
 
 # =========================================================
 # 🔹 GET ALL
@@ -93,9 +95,30 @@ def hard_delete_agent(agent_id: int, db: Session):
 # =========================================================
 # 🔹 GET BY USER
 # =========================================================
-def get_agents_by_user(user_id: int, db: Session, include_deleted: bool = False):
-    """Retrieve all agents belonging to a specific user."""
+def get_agents_by_user(user_id: int, db: Session, page: int = 1, include_deleted: bool = False, search_query: Optional[str] = None):
+    limit = get_int_config(db, "AgentPaginationLimit", 8)
+    offset = (page - 1) * limit
+
     query = db.query(Agent).filter(Agent.userid == user_id)
+
     if not include_deleted:
         query = query.filter(Agent.is_deleted == False)
-    return query.all()
+
+    # 🔍 Add search filtering
+    if search_query:
+        q = f"%{search_query.lower()}%"
+        query = query.filter(
+            func.lower(Agent.agentname).like(q) |
+            func.lower(Agent.agentpersonality).like(q) |
+            func.lower(Agent.agentbiography).like(q)
+        )
+
+    total_count = query.count()
+    agents = query.order_by(Agent.agentname.asc()).offset(offset).limit(limit).all()
+
+    return {
+        "page": page,
+        "limit": limit,
+        "total_count": total_count,
+        "agents": agents,
+    }

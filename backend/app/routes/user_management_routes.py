@@ -1,5 +1,5 @@
 # ===============================
-# app/routes/user_management_routes.py — Fixed Version
+# app/routes/user_management_routes.py — Final Version
 # ===============================
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
@@ -15,20 +15,21 @@ from app.db.schemas.user_schema import (
 from app.controllers.user_management_controller import (
     get_all_users, get_user_by_id, create_user, update_user,
     admin_update_user, change_user_status, delete_user,
-    hard_delete_user, bulk_change_status, bulk_delete_users
+    hard_delete_user, bulk_change_status, bulk_delete_users,
+    restore_user
 )
 from app.services.jwt_service import get_current_user
 from app.services.logging_service import system_logger
 from app.services.dedupe_service import dedupe_service
 from app.services.utils.permissions_helper import enforce_permission_auto
-from app.db.models.user_model import User  # Add this import for the total count query
+from app.db.models.user_model import User
 
 router = APIRouter(prefix="/admin/users", tags=["User Management"])
 
 
-# ===============================
+# ============================================================
 # 🔹 Get All Users
-# ===============================
+# ============================================================
 @router.get("/", response_model=UserListResponse)
 async def list_users(
     request: Request,
@@ -40,31 +41,24 @@ async def list_users(
     db: Session = Depends(get_db)
 ):
     try:
-        # ✅ Check permission first
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
 
         skip = (page - 1) * page_size
         users = get_all_users(db, skip=skip, limit=page_size, status=status, role=role)
         total_users = db.query(User).count()
-        
-        # Log user list view with deduplication
+
         if dedupe_service.should_log_action("USER_LIST_VIEW", current_user.userid):
             await system_logger.log_action(
                 db=db,
                 action_type="USER_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed user list (page {page}, status: {status}, role: {role})",
+                details=f"Viewed user list (page {page}, status={status}, role={role})",
                 request=request,
                 status="active"
             )
-        
-        return {
-            "users": users,
-            "total": total_users,
-            "page": page,
-            "page_size": page_size
-        }
-        
+
+        return {"users": users, "total": total_users, "page": page, "page_size": page_size}
+
     except Exception as e:
         await system_logger.log_action(
             db=db,
@@ -77,9 +71,9 @@ async def list_users(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
-# 🔹 Get User By ID
-# ===============================
+# ============================================================
+# 🔹 Get User by ID
+# ============================================================
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     request: Request,
@@ -89,23 +83,21 @@ async def get_user(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
         user = get_user_by_id(db, user_id)
-        
-        # Log user view with deduplication
+
         cache_key = f"user_view_{user_id}"
         if dedupe_service.should_log_action("USER_VIEW", current_user.userid, cache_key):
             await system_logger.log_action(
                 db=db,
                 action_type="USER_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed user ID: {user_id} ({user.username})",
+                details=f"Viewed user ID {user_id} ({user.username})",
                 request=request,
                 status="active"
             )
-        
+
         return user
-        
+
     except HTTPException as e:
         await system_logger.log_action(
             db=db,
@@ -128,9 +120,9 @@ async def get_user(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
+# ============================================================
 # 🔹 Create User
-# ===============================
+# ============================================================
 @router.post("/", response_model=UserResponse, status_code=201)
 async def create_new_user(
     request: Request,
@@ -140,21 +132,18 @@ async def create_new_user(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
         user = create_user(db, user_data)
-        
-        # Log user creation
+
         await system_logger.log_action(
             db=db,
             action_type="USER_CREATE",
             user_id=current_user.userid,
-            details=f"Created new user: {user.username} ({user.email}) with role: {user.role}",
+            details=f"Created new user: {user.username} ({user.email}) with role {user.role}",
             request=request,
             status="active"
         )
-        
         return user
-        
+
     except HTTPException as e:
         await system_logger.log_action(
             db=db,
@@ -177,9 +166,9 @@ async def create_new_user(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
+# ============================================================
 # 🔹 Update User (Admin)
-# ===============================
+# ============================================================
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user_admin(
     request: Request,
@@ -190,36 +179,30 @@ async def update_user_admin(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
         current_user_data = get_user_by_id(db, user_id)
         user = admin_update_user(db, user_id, user_data)
-        
-        # Log user update
+
         updated_fields = []
         if user_data.username and user_data.username != current_user_data.username:
-            updated_fields.append(f"username: '{current_user_data.username}'→'{user_data.username}'")
+            updated_fields.append(f"username: {current_user_data.username}→{user_data.username}")
         if user_data.email and user_data.email != current_user_data.email:
-            updated_fields.append(f"email: '{current_user_data.email}'→'{user_data.email}'")
+            updated_fields.append(f"email: {current_user_data.email}→{user_data.email}")
         if user_data.role and user_data.role != current_user_data.role:
             updated_fields.append(f"role: {current_user_data.role}→{user_data.role}")
         if user_data.status and user_data.status != current_user_data.status:
             updated_fields.append(f"status: {current_user_data.status}→{user_data.status}")
 
-        update_details = f"Updated user ID {user_id} ({current_user_data.username})"
-        if updated_fields:
-            update_details += f" - Changes: {', '.join(updated_fields)}"
-
+        change_summary = ", ".join(updated_fields) if updated_fields else "no visible field changes"
         await system_logger.log_action(
             db=db,
             action_type="USER_UPDATE",
             user_id=current_user.userid,
-            details=update_details,
+            details=f"Updated user {user_id} ({current_user_data.username}): {change_summary}",
             request=request,
             status="active"
         )
-        
         return user
-        
+
     except HTTPException as e:
         await system_logger.log_action(
             db=db,
@@ -242,9 +225,9 @@ async def update_user_admin(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
+# ============================================================
 # 🔹 Change User Status
-# ===============================
+# ============================================================
 @router.patch("/{user_id}/status", response_model=UserStatusResponse)
 async def update_user_status(
     request: Request,
@@ -255,51 +238,35 @@ async def update_user_status(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
         current_user_data = get_user_by_id(db, user_id)
-        user = change_user_status(db, user_id, status_data)
-        
-        # Log status change
+        change_user_status(db, user_id, status_data)
+
         await system_logger.log_action(
             db=db,
             action_type="USER_STATUS_CHANGE",
             user_id=current_user.userid,
-            details=f"Changed user {user_id} ({current_user_data.username}) status from {current_user_data.status} to {status_data.status}",
+            details=f"Changed status of user {user_id} ({current_user_data.username}) to {status_data.status}",
             request=request,
             status="active"
         )
-        
-        return {
-            "message": f"User status updated to {status_data.status}",
-            "user_id": user_id,
-            "new_status": status_data.status
-        }
-        
-    except HTTPException as e:
-        await system_logger.log_action(
-            db=db,
-            action_type="USER_STATUS_CHANGE_FAILED",
-            user_id=current_user.userid,
-            details=f"Failed to change user {user_id} status: {e.detail}",
-            request=request,
-            status="active"
-        )
-        raise e
+
+        return {"message": f"User status updated to {status_data.status}", "user_id": user_id, "new_status": status_data.status}
+
     except Exception as e:
         await system_logger.log_action(
             db=db,
             action_type="USER_STATUS_CHANGE_ERROR",
             user_id=current_user.userid,
-            details=f"Error changing user {user_id} status: {str(e)}",
+            details=f"Error changing status of user {user_id}: {str(e)}",
             request=request,
             status="active"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
-# 🔹 Delete User (Soft)
-# ===============================
+# ============================================================
+# 🔹 Soft Delete User
+# ============================================================
 @router.delete("/{user_id}", response_model=MessageResponse)
 async def soft_delete_user(
     request: Request,
@@ -309,31 +276,19 @@ async def soft_delete_user(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-        
         user = get_user_by_id(db, user_id)
-        delete_user(db, user_id, current_user.userid)  # Pass current user ID
-        
+        delete_user(db, user_id, current_user.userid)
+
         await system_logger.log_action(
             db=db,
             action_type="USER_DELETE",
             user_id=current_user.userid,
-            details=f"Soft deleted user ID: {user_id} ({user.username})",
+            details=f"Soft deleted user {user_id} ({user.username})",
             request=request,
             status="active"
         )
-        
-        return {"message": f"User {user_id} has been deleted"}
-        
-    except HTTPException as e:
-        await system_logger.log_action(
-            db=db,
-            action_type="USER_DELETE_FAILED",
-            user_id=current_user.userid,
-            details=f"Failed to delete user {user_id}: {e.detail}",
-            request=request,
-            status="active"
-        )
-        raise e
+        return {"message": f"User {user_id} soft-deleted successfully"}
+
     except Exception as e:
         await system_logger.log_action(
             db=db,
@@ -346,11 +301,48 @@ async def soft_delete_user(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
+# ============================================================
+# 🔹 Restore User
+# ============================================================
+@router.post("/{user_id}/restore", response_model=MessageResponse)
+async def restore_deleted_user(
+    request: Request,
+    user_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Restore a previously soft-deleted user"""
+    try:
+        enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
+        user = restore_user(db, user_id)
+
+        await system_logger.log_action(
+            db=db,
+            action_type="USER_RESTORE",
+            user_id=current_user.userid,
+            details=f"Restored user {user_id} ({user.username})",
+            request=request,
+            status="active"
+        )
+        return {"message": f"User {user.username} has been restored successfully"}
+
+    except Exception as e:
+        await system_logger.log_action(
+            db=db,
+            action_type="USER_RESTORE_ERROR",
+            user_id=current_user.userid,
+            details=f"Error restoring user {user_id}: {str(e)}",
+            request=request,
+            status="active"
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============================================================
 # 🔹 Hard Delete User
-# ===============================
+# ============================================================
 @router.delete("/{user_id}/hard", response_model=MessageResponse)
-async def permanent_delete_user(
+async def hard_delete_user_route(
     request: Request,
     user_id: int,
     current_user: dict = Depends(get_current_user),
@@ -358,31 +350,19 @@ async def permanent_delete_user(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-        
         user = get_user_by_id(db, user_id)
-        hard_delete_user(db, user_id, current_user.userid)  # Pass current user ID
-        
+        hard_delete_user(db, user_id, current_user.userid)
+
         await system_logger.log_action(
             db=db,
             action_type="USER_HARD_DELETE",
             user_id=current_user.userid,
-            details=f"Permanently deleted user ID: {user_id} ({user.username})",
+            details=f"Permanently deleted user {user_id} ({user.username})",
             request=request,
             status="active"
         )
-        
-        return {"message": f"User {user_id} has been permanently deleted"}
-        
-    except HTTPException as e:
-        await system_logger.log_action(
-            db=db,
-            action_type="USER_HARD_DELETE_FAILED",
-            user_id=current_user.userid,
-            details=f"Failed to hard delete user {user_id}: {e.detail}",
-            request=request,
-            status="active"
-        )
-        raise e
+        return {"message": f"User {user.username} permanently deleted"}
+
     except Exception as e:
         await system_logger.log_action(
             db=db,
@@ -395,11 +375,11 @@ async def permanent_delete_user(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
+# ============================================================
 # 🔹 Bulk Status Change
-# ===============================
+# ============================================================
 @router.post("/bulk/status", response_model=BulkOperationResponse)
-async def bulk_update_user_status(
+async def bulk_update_status(
     request: Request,
     operation: BulkUserOperation,
     status: UserStatusUpdate,
@@ -408,25 +388,18 @@ async def bulk_update_user_status(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
         result = bulk_change_status(db, operation.user_ids, status.status)
-        
-        # Log bulk status change
+
         await system_logger.log_action(
             db=db,
             action_type="USER_BULK_STATUS_CHANGE",
             user_id=current_user.userid,
-            details=f"Bulk status change: {len(operation.user_ids)} users to {status.status} (processed: {result['processed']}, failed: {result['failed']})",
+            details=f"Bulk updated status of {result['processed']} users to {status.status}",
             request=request,
             status="active"
         )
-        
-        return {
-            "message": f"Bulk status update completed",
-            "processed": result["processed"],
-            "failed": result["failed"]
-        }
-        
+        return result
+
     except Exception as e:
         await system_logger.log_action(
             db=db,
@@ -439,11 +412,11 @@ async def bulk_update_user_status(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# ===============================
-# 🔹 Bulk Delete
-# ===============================
+# ============================================================
+# 🔹 Bulk Soft Delete
+# ============================================================
 @router.post("/bulk/delete", response_model=BulkOperationResponse)
-async def bulk_delete_users_endpoint(
+async def bulk_delete_users_route(
     request: Request,
     operation: BulkUserOperation,
     current_user: dict = Depends(get_current_user),
@@ -451,25 +424,18 @@ async def bulk_delete_users_endpoint(
 ):
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
-
         result = bulk_delete_users(db, operation.user_ids)
-        
-        # Log bulk deletion
+
         await system_logger.log_action(
             db=db,
             action_type="USER_BULK_DELETE",
             user_id=current_user.userid,
-            details=f"Bulk deleted {len(operation.user_ids)} users (processed: {result['processed']}, failed: {result['failed']})",
+            details=f"Bulk soft deleted {result['processed']} users (failed: {result['failed']})",
             request=request,
             status="active"
         )
-        
-        return {
-            "message": "Bulk deletion completed",
-            "processed": result["processed"],
-            "failed": result["failed"]
-        }
-        
+        return result
+
     except Exception as e:
         await system_logger.log_action(
             db=db,

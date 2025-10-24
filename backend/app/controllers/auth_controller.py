@@ -9,6 +9,9 @@ from app.services.utils.config_helper import get_int_config
 # -------------------------------------------
 # REGISTER USER
 # -------------------------------------------
+# -------------------------------------------
+# REGISTER USER
+# -------------------------------------------
 def register_user(db: Session, data: UserCreate):
     # Check duplicates
     if db.query(User).filter(User.email == data.email).first():
@@ -32,6 +35,26 @@ def register_user(db: Session, data: UserCreate):
     db.commit()
     db.refresh(new_user)
 
+    # 🪙 Automatically create billing wallet
+    try:
+        from app.controllers import billing_controller
+        from app.db.schemas.billing_schema import BillingCreate
+        from app.services.utils.config_helper import get_int_config
+
+        # Get default free credits from config_tbl (fallback to 5)
+        daily_free = get_int_config(db, "dailyFreeCredits", 5)
+
+        billing_data = BillingCreate(
+            userid=new_user.userid,
+            free_credits=daily_free,
+            paid_credits=0
+        )
+        billing_controller.create_billing_record(db, billing_data)
+
+    except Exception as e:
+        # Do not block signup if billing creation fails — just log it
+        print(f"⚠️ Billing wallet creation failed for user {new_user.userid}: {e}")
+
     return new_user
 
 
@@ -49,15 +72,48 @@ def login_user(db: Session, data: UserLogin):
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # 🪙 Ensure billing wallet exists
+    from app.db.models.credit_model import Billing
+    from app.controllers import billing_controller
+    from app.db.schemas.billing_schema import BillingCreate
+    from app.services.utils.config_helper import get_int_config
+    from datetime import datetime, timezone
+
+    billing = db.query(Billing).filter(Billing.userid == user.userid).first()
+    if not billing:
+        print(f"⚠️ No billing found for user {user.userid}, creating one...")
+        daily_free = get_int_config(db, "dailyFreeCredits", 5)
+        billing_data = BillingCreate(
+            userid=user.userid,
+            free_credits=daily_free,
+            paid_credits=0
+        )
+        billing = billing_controller.create_billing_record(db, billing_data)
+
+    # ✅ Refresh free credits if outdated
+    try:
+        today_utc = datetime.now(timezone.utc).date()
+        daily_free = get_int_config(db, "dailyFreeCredits", 5)
+
+        if not billing.last_free_credit_date or billing.last_free_credit_date < today_utc:
+            billing.free_credits = daily_free
+            billing.last_free_credit_date = today_utc
+            db.commit()
+            db.refresh(billing)
+            print(f"✅ Refreshed free credits for user {user.userid} on login")
+
+    except Exception as e:
+        print(f"⚠️ Failed to refresh credits for user {user.userid}: {e}")
+
+    # 🎟️ Generate tokens
     access_token = create_access_token({"user_id": user.userid, "role": user.role}, db=db)
-    refresh_token = create_refresh_token({"user_id": user.userid, "role": user.role},db=db)
+    refresh_token = create_refresh_token({"user_id": user.userid, "role": user.role}, db=db)
 
     return {
         "message": "Login successful",
         "access_token": access_token,
         "refresh_token": refresh_token,
     }
-
 
 # -------------------------------------------
 # LOGOUT USER

@@ -36,16 +36,39 @@ def get_scenario_by_id(db: Session, scenarioid: int, include_deleted: bool = Fal
 # ============================================================
 def create_scenario(db: Session, scenario_data: ScenarioCreate):
     """Create a new scenario entry."""
+     # ====================================================
+        # 🧠 AI Name Generation Placeholder
+        # ====================================================
+        # TODO (AI Architect): 
+        # When integrating the AI module, use scenario_data.prompt 
+        # to generate a concise scenario name (<= 100 chars).
+        #
+        # Example:
+        # scenario_name = ai_generate_summary(scenario_data.prompt)
+        # scenario_data.name = scenario_name
+        #
+        # For now, we fallback to truncating the prompt safely.
+        # ====================================================
     try:
-        new_scenario = Scenario(**scenario_data.model_dump())
+        scenarioname = scenario_data.scenarioname or "Untitled Scenario"
+        if len(scenarioname) > 100:
+            scenarioname = scenarioname[:97] + "..."
+
+        new_scenario = Scenario(
+            scenarioname=scenarioname,
+            scenarioprompt=scenario_data.scenarioprompt,
+            projectid=int(scenario_data.projectid),
+            status=scenario_data.status,
+        )
+
         db.add(new_scenario)
         db.commit()
         db.refresh(new_scenario)
         return new_scenario
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 
 # ============================================================
 # 🔹 UPDATE SCENARIO

@@ -167,6 +167,9 @@ app.include_router(user_management_routes.router)
 from app.routes import credit_config_routes
 app.include_router(credit_config_routes.router)
 
+from app.routes import billing_routes
+app.include_router(billing_routes.router)
+
 
 print("🎯 All routes registered!")
 

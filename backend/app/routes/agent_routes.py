@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
-from app.db.schemas.agent_schema import AgentCreate, AgentUpdate, AgentResponse
+from app.db.schemas.agent_schema import AgentCreate, AgentUpdate, AgentResponse, PaginatedAgentsResponse
 from app.controllers import agent_controller
 from app.db.database import get_db
 from app.services.utils.permissions_helper import enforce_permission_auto
@@ -197,31 +197,44 @@ async def delete_agent(
 # ============================================================
 # 🔹 GET AGENTS BY USER (requires READ access)
 # ============================================================
-@router.get("/user/{user_id}", response_model=List[AgentResponse])
+@router.get("/user/{user_id}", response_model=PaginatedAgentsResponse)
 async def get_agents_by_user(
     user_id: int,
+    page: int = Query(1, ge=1),
     include_deleted: Optional[bool] = Query(False),
+    q: Optional[str] = Query(None, description="Search keyword for agent name, personality, or biography"),
     request: Request = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
-    Retrieve all agents belonging to a specific user.
+    Retrieve paginated agents belonging to a specific user.
     Excludes deleted by default; include_deleted=True for admin.
+    Supports search with `q` parameter.
     """
     try:
+        # ✅ Permission enforcement
         enforce_permission_auto(db, current_user, "AGENTS", request)
 
         # ✅ Restrict access unless admin or self
         if current_user.role != "admin" and current_user.userid != user_id:
             raise HTTPException(status_code=403, detail="Access forbidden")
 
-        result = agent_controller.get_agents_by_user(user_id, db, include_deleted=include_deleted)
+        # ✅ Pass page & query to controller
+        result = agent_controller.get_agents_by_user(
+            user_id,
+            db,
+            page=page,
+            include_deleted=include_deleted,
+            search_query=q,   # 👈 new param
+        )
 
         await log_action(
-            db, request, current_user,
+            db,
+            request,
+            current_user,
             "AGENT_LIST_BY_USER",
-            details=f"Viewed agents of user ID {user_id} (include_deleted={include_deleted})"
+            details=f"Viewed agents of user ID {user_id} (page={page}, include_deleted={include_deleted}, q={q})",
         )
 
         return result
