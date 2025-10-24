@@ -133,6 +133,15 @@ def seed_access_controls(db: Session):
             "is_critical": False,
             "status": LifecycleStatus.active,
         },
+        {
+            "module_key": "CREDIT_PACK",
+            "module_desc": "Credit Configuration",
+            "user_access": AccessLevel.none,
+            "admin_access": AccessLevel.read,
+            "superadmin_access": AccessLevel.write,
+            "is_critical": False,
+            "status": LifecycleStatus.active,
+        },
     ]
 
     added = 0

@@ -9,7 +9,7 @@ from app.db.database import get_db
 from app.db.seed.access_control_seed import seed_access_controls
 from app.db.seed.config_seed import seed_configs
 from app.db.seed.maintenance_seed import seed_maintenance
-
+from app.db.seed.credit_config_seed import seed_credit_packs
 init_db()
 
 app = FastAPI(
@@ -164,7 +164,8 @@ app.include_router(permissions_routes.router)
 from app.routes import user_management_routes
 app.include_router(user_management_routes.router)
 
-
+from app.routes import credit_config_routes
+app.include_router(credit_config_routes.router)
 
 
 print("🎯 All routes registered!")
@@ -177,10 +178,13 @@ def seed_defaults():
         seed_access_controls(db)
         seed_configs(db)
         seed_maintenance(db)
+        seed_credit_packs(db)
+        
     except Exception as e:
         print(f"❌ Access Control seeding failed: {e}")
     finally:
         db.close()
+
 
 
 @app.get("/debug-all-routes")
