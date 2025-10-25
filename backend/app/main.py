@@ -10,6 +10,10 @@ from app.db.seed.access_control_seed import seed_access_controls
 from app.db.seed.config_seed import seed_configs
 from app.db.seed.maintenance_seed import seed_maintenance
 from app.db.seed.credit_config_seed import seed_credit_packs
+from dotenv import load_dotenv
+load_dotenv()  # 👈 this loads your .env into os.environ
+
+
 init_db()
 
 app = FastAPI(
@@ -170,6 +174,8 @@ app.include_router(credit_config_routes.router)
 from app.routes import billing_routes
 app.include_router(billing_routes.router)
 
+from app.routes import payment_routes
+app.include_router(payment_routes.router)
 
 print("🎯 All routes registered!")
 

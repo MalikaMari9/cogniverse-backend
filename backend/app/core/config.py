@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     stripe_public_key: str = ""
     stripe_secret_key: str = ""
+    stripe_webhook_secret : str = ""
 
     class Config:
         env_file = ".env"
