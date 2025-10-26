@@ -5,24 +5,33 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.db.models.user_model import User, UserStatus
 from app.db.schemas.user_schema import (
-    UserCreate,
+    UserAdminCreate,
     UserUpdate,
     UserAdminUpdate,
     UserStatusUpdate,
 )
+from app.db.schemas.user_schema import UserResponse
 
+from math import ceil
+from app.services.utils.config_helper import get_int_config
 
 # ============================================================
 # 🔹 Get All Users
 # ============================================================
-def get_all_users(
+
+
+
+def get_all_users_paginated(
     db: Session,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    limit: Optional[int] = None,
     status: Optional[str] = None,
     role: Optional[str] = None,
-) -> List[User]:
-    """Get all users with optional filtering"""
+):
+    """Return users with pagination and optional filters"""
+    if limit is None:
+        limit = get_int_config(db, "LogPaginationLimit", 20)
+
     query = db.query(User)
 
     if status:
@@ -30,8 +39,20 @@ def get_all_users(
     if role:
         query = query.filter(User.role == role)
 
-    return query.offset(skip).limit(limit).all()
+    total = query.count()
+    start = (page - 1) * limit
+    users = query.offset(start).limit(limit).all()
 
+    # ✅ Convert ORM users to Pydantic models
+    user_list = [UserResponse.model_validate(u) for u in users]
+
+    return {
+        "items": user_list,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": ceil(total / limit) if total else 1,
+    }
 
 # ============================================================
 # 🔹 Get User by ID
@@ -47,8 +68,11 @@ def get_user_by_id(db: Session, user_id: int) -> User:
 # ============================================================
 # 🔹 Create User
 # ============================================================
-def create_user(db: Session, user_data: UserCreate) -> User:
-    """Create a new user"""
+from app.services.utils.config_helper import get_config_value
+
+def create_user(db: Session, user_data: UserAdminCreate) -> User:
+    """Create a new user (uses defaultPassword from config if password missing)"""
+
     # Check if username already exists
     if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -57,9 +81,15 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=400, detail="Email already exists")
 
+    # ✅ Use config default password if not provided
+    raw_password = user_data.password or get_config_value(db, "defaultPassword", "Test12345")
+
+    if not raw_password:
+        raise HTTPException(status_code=400, detail="Password cannot be empty")
+
     # Hash password
     password_hash = bcrypt.hashpw(
-        user_data.password.encode("utf-8"), bcrypt.gensalt()
+        raw_password.encode("utf-8"), bcrypt.gensalt()
     ).decode("utf-8")
 
     # Create user
@@ -74,7 +104,6 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     db.commit()
     db.refresh(user)
     return user
-
 
 # ============================================================
 # 🔹 Update User (Non-Admin)

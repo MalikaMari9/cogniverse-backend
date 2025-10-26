@@ -178,6 +178,9 @@ app.include_router(billing_routes.router)
 from app.routes import payment_routes
 app.include_router(payment_routes.router)
 
+from app.routes import credit_transaction_routes
+app.include_router(credit_transaction_routes.router)
+
 print("🎯 All routes registered!")
 
 # ✅ Seed default access control records (runs once at startup)

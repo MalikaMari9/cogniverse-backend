@@ -3,26 +3,49 @@ from fastapi import HTTPException, status
 from datetime import datetime
 from app.db.models.announcement_model import Announcement, LifecycleStatus
 from app.db.models.user_model import User
-from app.db.schemas.announcement_schema import AnnouncementCreate, AnnouncementUpdate
-
+from app.db.schemas.announcement_schema import AnnouncementCreate, AnnouncementUpdate, AnnouncementResponse
+from app.services.utils.config_helper import get_int_config
+from math import ceil
 
 # ============================================================
-# 🔹 GET ALL ANNOUNCEMENTS
+# 🔹 GET ALL ANNOUNCEMENTS (Config-driven Pagination)
 # ============================================================
-def get_all_announcements(db: Session, include_deleted: bool = False):
-    """Retrieve all announcements (exclude deleted by default)."""
+def get_all_announcements_paginated(
+    db: Session,
+    page: int = 1,
+    limit: int | None = None,
+    include_deleted: bool = False,
+):
+    """Retrieve announcements with pagination and soft-delete control."""
+    if limit is None:
+        limit = get_int_config(db, "LogPaginationLimit", 10)
+
     query = db.query(Announcement)
     if not include_deleted:
         query = query.filter(Announcement.is_deleted == False)
 
-    announcements = query.order_by(Announcement.created_at.desc()).all()
+    total = query.count()
+    start = (page - 1) * limit
+    announcements = (
+        query.order_by(Announcement.created_at.desc())
+        .offset(start)
+        .limit(limit)
+        .all()
+    )
 
-    # Add username to each announcement
+    # ✅ Attach usernames and convert to Pydantic models
+    results = []
     for ann in announcements:
         ann.created_by_username = ann.user.username if ann.user else "Unknown User"
+        results.append(AnnouncementResponse.model_validate(ann))
 
-    return announcements
-
+    return {
+        "items": results,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": ceil(total / limit) if total else 1,
+    }
 
 # ============================================================
 # 🔹 GET SINGLE ANNOUNCEMENT

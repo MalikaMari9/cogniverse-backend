@@ -20,30 +20,35 @@ router = APIRouter(prefix="/announcements", tags=["Announcements"])
 
 
 # ===============================
-# 🔹 Get All Announcements
+# 🔹 Get All Announcements (Paginated, Config-Driven)
 # ===============================
-@router.get("/", response_model=List[AnnouncementResponse])
+@router.get("/", response_model=dict)
 async def get_all_announcements(
     request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Items per page (from config if not provided)"),
     include_deleted: Optional[bool] = Query(False, description="Include soft-deleted announcements"),
     current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     try:
         enforce_permission_auto(db, current_user, "ANNOUNCEMENTS", request)
 
-        result = announcement_controller.get_all_announcements(db, include_deleted=include_deleted)
+        result = announcement_controller.get_all_announcements_paginated(
+            db=db,
+            page=page,
+            limit=limit,
+            include_deleted=include_deleted,
+        )
 
         # 🪶 Deduped log
         if dedupe_service.should_log_action("ANNOUNCEMENT_LIST_VIEW", current_user.userid):
-            total = len(result or [])
-            active = len([a for a in result if a.status == "active"])
             await system_logger.log_action(
                 db=db,
                 action_type="ANNOUNCEMENT_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed announcements list (include_deleted={include_deleted}) "
-                        f"({total} total, {active} active)",
+                details=f"Viewed announcements list (page={page}, include_deleted={include_deleted}) "
+                        f"→ total={result['total']} items",
                 request=request,
                 status="active"
             )
@@ -59,8 +64,7 @@ async def get_all_announcements(
             request=request,
             status="active"
         )
-        raise
-
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ===============================
 # 🔹 Get Single Announcement
@@ -301,6 +305,7 @@ async def hard_delete_announcement(
             request=request,
             status="inactive"
         )
+
 
         return result
 

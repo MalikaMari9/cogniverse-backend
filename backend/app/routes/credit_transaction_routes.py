@@ -28,18 +28,23 @@ def create_transaction(
     return credit_transaction_controller.create_transaction(db, tx)
 
 
+
+from fastapi import Query
+
 # ──────────────────────────────────────────────────────────────
-# Get all transactions
+# Get all transactions (Paginated)
 # ──────────────────────────────────────────────────────────────
-@router.get("/", response_model=List[CreditTransactionResponse])
+@router.get("/", response_model=dict)
 def get_all_transactions(
     request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int | None = Query(None, ge=1, le=100, description="Items per page (from config if not set)"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     enforce_permission_auto(db, current_user, "CREDIT_TRANSACTIONS", request)
-    return credit_transaction_controller.get_all_transactions(db)
-
+    result = credit_transaction_controller.get_all_transactions_paginated(db, page=page, limit=limit)
+    return result
 
 # ──────────────────────────────────────────────────────────────
 # Get transaction by ID

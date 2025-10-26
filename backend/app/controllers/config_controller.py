@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.db.models.config_model import Config
 from app.db.schemas.config_schema import ConfigCreate, ConfigUpdate
+from app.services.utils.config_validator import validate_config_key_value
+
 
 def get_all_configs(db: Session):
     return db.query(Config).all()
@@ -17,16 +19,24 @@ def create_config(config_data: ConfigCreate, db: Session):
     if existing:
         raise HTTPException(status_code=400, detail="Config key already exists")
 
+    # ✅ Validate before saving
+    validate_config_key_value(config_data.config_key, config_data.config_value)
+
     new_config = Config(**config_data.model_dump())
     db.add(new_config)
     db.commit()
     db.refresh(new_config)
     return new_config
 
+
 def update_config(config_id: int, config_data: ConfigUpdate, db: Session):
     config = db.query(Config).filter(Config.configid == config_id).first()
     if not config:
         raise HTTPException(status_code=404, detail="Config not found")
+
+    # ✅ Validate before applying update
+    new_value = config_data.config_value if config_data.config_value is not None else config.config_value
+    validate_config_key_value(config.config_key, new_value)
 
     for key, value in config_data.model_dump(exclude_unset=True).items():
         setattr(config, key, value)
