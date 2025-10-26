@@ -348,21 +348,23 @@ async def hard_delete_contact(
 @router.post("/contact/")
 async def contact_us(
     name: str = Form(...),
+    email: str = Form(None),  # Optional email for reply
     subject: str = Form("No Subject"),
     message: str = Form(...),
     db: Session = Depends(get_db)
 ):
     try:
-        print(f"📨 Received contact form: {name}, {subject}")
+        print(f"📨 Received contact form: {name}, Email: {email}, Subject: {subject}")
         
-        # Get FROM_EMAIL to use as placeholder
+        # Get FROM_EMAIL for database placeholder
         from_email = os.getenv("FROM_EMAIL")
         if not from_email:
             raise ValueError("FROM_EMAIL not found in environment variables")
         
-        # Use FROM_EMAIL as placeholder since database requires NOT NULL
+        # Save contact to DB - use user's email if provided, otherwise FROM_EMAIL as placeholder
+        contact_email = email if email else from_email
         contact_data = ContactCreate(
-            email=from_email,  # Use FROM_EMAIL as placeholder
+            email=contact_email,
             subject=subject,
             message=message,
             userid=None
@@ -376,31 +378,33 @@ async def contact_us(
         to_email = os.getenv("TO_EMAIL")
         email_password = os.getenv("EMAIL_PASSWORD")
         
-        print(f"📧 Email config - To: {to_email}, From: {from_email}")
+        print(f"📧 Email config - To: {to_email}, From: {from_email}, Reply-To: {email}")
         
         if not to_email or not email_password:
             raise ValueError("Missing email configuration in environment variables")
         
+        # Create email body
+        contact_info = f"Email: {email}" if email else "No email provided"
         email_body = f"""
         New Contact Form Submission:
         
         Name: {name}
-        Contact: Public contact form (no email provided by user)
+        {contact_info}
         Subject: {subject}
         
         Message:
         {message}
         
         ---
-        Sent from your public website contact form.
-        User did not provide contact information.
+        Sent from your website contact form.
         """
         
         print("🔄 Sending email...")
         success = send_email(
             to_email=to_email,
             subject=f"Contact Form: {subject}",
-            body=email_body
+            body=email_body,
+            reply_to=email  # Pass user's email for reply-to if provided
         )
 
         if success:

@@ -6,15 +6,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def send_email(to_email, subject, body):
+def send_email(to_email, subject, body, reply_to=None):
     try:
         from_email = os.getenv("FROM_EMAIL")
         email_password = os.getenv("EMAIL_PASSWORD")
         
         print(f"📧 Sending email: {from_email} → {to_email}")
-        print(f"🔑 Password length: {len(email_password) if email_password else 'MISSING'}")
-        print(f"🔑 Password preview: {email_password[:4]}..." if email_password else "MISSING")
-        print(f"📝 Subject: {subject}")
+        if reply_to:
+            print(f"↩️ Reply-To: {reply_to}")
         
         if not from_email or not email_password:
             raise ValueError("Email credentials not found in environment variables")
@@ -24,6 +23,10 @@ def send_email(to_email, subject, body):
         msg['From'] = from_email
         msg['To'] = to_email
         msg['Subject'] = subject
+        
+        # Add Reply-To header if user provided email
+        if reply_to:
+            msg['Reply-To'] = reply_to
         
         # Add body to email
         msg.attach(MIMEText(body, 'plain'))
