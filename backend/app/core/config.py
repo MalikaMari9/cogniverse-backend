@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret : str = ""
 
+    # Email settings
+    to_email: str
+    from_email: str
+    email_password: str
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
