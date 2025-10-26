@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     stripe_webhook_secret : str = ""
 
     # Email settings
-    to_email: str
-    from_email: str
-    email_password: str
+    to_email: str | None = None
+    from_email: str | None = None
+    email_password: str | None = None
 
     class Config:
         env_file = ".env"

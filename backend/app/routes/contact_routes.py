@@ -23,7 +23,7 @@ from app.db.models.user_model import User
 from app.services.jwt_service import get_current_user
 from app.services.utils.contact_helper import send_contact_notification
 import os
-
+from app.services.utils.config_helper import get_config_value
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 
 
@@ -341,9 +341,8 @@ async def hard_delete_contact(
         )
         raise HTTPException(status_code=500, detail="Internal server error")
     
-
 # ===============================
-# 🔹 Send Email
+# 🔹 Send Email (Contact Form)
 # ===============================
 @router.post("/contact/")
 async def contact_us(
@@ -355,65 +354,31 @@ async def contact_us(
 ):
     try:
         print(f"📨 Received contact form: {name}, Email: {email}, Subject: {subject}")
-        
-        # Get FROM_EMAIL for database placeholder
-        from_email = os.getenv("FROM_EMAIL")
-        if not from_email:
-            raise ValueError("FROM_EMAIL not found in environment variables")
-        
-        # Save contact to DB - use user's email if provided, otherwise FROM_EMAIL as placeholder
-        contact_email = email if email else from_email
+
+        # 🔹 Save contact entry first
+        contact_email = email or get_config_value(db, "fromEmail", os.getenv("FROM_EMAIL"))
         contact_data = ContactCreate(
             email=contact_email,
             subject=subject,
             message=message,
             userid=None
         )
-        
+
         print("💾 Saving to database...")
         db_contact = contact_controller.create_contact(contact_data, db)
         print(f"✅ Contact saved with ID: {db_contact.contactid}")
 
-        # Send email using FROM_EMAIL as sender
-        to_email = os.getenv("TO_EMAIL")
-        email_password = os.getenv("EMAIL_PASSWORD")
-        
-        print(f"📧 Email config - To: {to_email}, From: {from_email}, Reply-To: {email}")
-        
-        if not to_email or not email_password:
-            raise ValueError("Missing email configuration in environment variables")
-        
-        # Create email body
-        contact_info = f"Email: {email}" if email else "No email provided"
-        email_body = f"""
-        New Contact Form Submission:
-        
-        Name: {name}
-        {contact_info}
-        Subject: {subject}
-        
-        Message:
-        {message}
-        
-        ---
-        Sent from your website contact form.
-        """
-        
-        print("🔄 Sending email...")
-        success = send_email(
-            to_email=to_email,
-            subject=f"Contact Form: {subject}",
-            body=email_body,
-            reply_to=email  # Pass user's email for reply-to if provided
-        )
+        # 🔹 Send email notification
+        print("🔄 Sending notification email...")
+        success = send_contact_notification(db, user_name=name, subject=subject, message=message)
 
         if success:
             print("✅ Email sent successfully")
             return {"message": "Thank you for your message! We'll get back to you soon."}
         else:
             print("❌ Email failed to send")
-            return {"message": "Message received! We'll review it shortly."}
-            
+            return {"message": "Message received, but email could not be delivered."}
+
     except Exception as e:
         print(f"❌ Contact form error: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing your message")

@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # 👈 this loads your .env into os.environ
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -10,8 +13,6 @@ from app.db.seed.access_control_seed import seed_access_controls
 from app.db.seed.config_seed import seed_configs
 from app.db.seed.maintenance_seed import seed_maintenance
 from app.db.seed.credit_config_seed import seed_credit_packs
-from dotenv import load_dotenv
-load_dotenv()  # 👈 this loads your .env into os.environ
 
 
 init_db()
