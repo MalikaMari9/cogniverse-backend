@@ -12,7 +12,7 @@ class LifecycleStatus(str, Enum):
 
 class ContactBase(BaseModel):
     userid: Optional[int] = None
-    email: EmailStr
+    email: Optional[EmailStr] = None  
     subject: Optional[str] = Field(None, max_length=150)
     message: str
     is_resolved: Optional[bool] = False
