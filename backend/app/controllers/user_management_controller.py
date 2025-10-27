@@ -11,7 +11,8 @@ from app.db.schemas.user_schema import (
     UserStatusUpdate,
 )
 from app.db.schemas.user_schema import UserResponse
-
+from app.services.utils.config_helper import get_config_value
+from app.services.email_service import send_email_html
 from math import ceil
 from app.services.utils.config_helper import get_int_config
 
@@ -68,10 +69,10 @@ def get_user_by_id(db: Session, user_id: int) -> User:
 # ============================================================
 # 🔹 Create User
 # ============================================================
-from app.services.utils.config_helper import get_config_value
+
 
 def create_user(db: Session, user_data: UserAdminCreate) -> User:
-    """Create a new user (uses defaultPassword from config if password missing)"""
+    """Create a new user and send a welcome email."""
 
     # Check if username already exists
     if db.query(User).filter(User.username == user_data.username).first():
@@ -88,9 +89,7 @@ def create_user(db: Session, user_data: UserAdminCreate) -> User:
         raise HTTPException(status_code=400, detail="Password cannot be empty")
 
     # Hash password
-    password_hash = bcrypt.hashpw(
-        raw_password.encode("utf-8"), bcrypt.gensalt()
-    ).decode("utf-8")
+    password_hash = bcrypt.hashpw(raw_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     # Create user
     user = User(
@@ -103,8 +102,41 @@ def create_user(db: Session, user_data: UserAdminCreate) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
 
+    # ✅ Send welcome email
+    try:
+        frontend_base = get_config_value(db, "frontendBaseUrl", "http://localhost:5173")
+        login_link = f"{frontend_base.rstrip('/')}/login"
+
+        subject = "🎉 Welcome to CogniVerse!"
+        html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; background:#f9fafb; padding:20px;">
+            <div style="max-width:500px; margin:auto; background:white; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1); padding:30px;">
+              <h2 style="color:#4a90e2;">Your CogniVerse Account is Ready!</h2>
+              <p>Hello <b>{user.username}</b>,</p>
+              <p>An administrator has created your CogniVerse account. You can now log in using:</p>
+              <ul style="line-height:1.6;">
+                <li><b>Username:</b> {user.email}</li>
+                <li><b>Temporary Password:</b> {raw_password}</li>
+              </ul>
+              <p>Please log in and change your password immediately.</p>
+              <p style="text-align:center; margin:25px 0;">
+                <a href="{login_link}" style="background:#4a90e2; color:white; padding:10px 25px; border-radius:6px; text-decoration:none;">Go to Login</a>
+              </p>
+              <p style="font-size:13px; color:#999;">© {datetime.utcnow().year} CogniVerse. All rights reserved.</p>
+            </div>
+          </body>
+        </html>
+        """
+
+        send_email_html(db, to_email=user.email, subject=subject, html_body=html)
+        print(f"📧 Welcome email sent to {user.email}")
+
+    except Exception as e:
+        print(f"⚠️ Could not send welcome email: {e}")
+
+    return user
 # ============================================================
 # 🔹 Update User (Non-Admin)
 # ============================================================

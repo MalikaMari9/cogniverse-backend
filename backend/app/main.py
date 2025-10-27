@@ -181,8 +181,8 @@ app.include_router(payment_routes.router)
 from app.routes import credit_transaction_routes
 app.include_router(credit_transaction_routes.router)
 
-from app.routes import forgot_password
-app.include_router(forgot_password.router)
+from app.routes import password_reset_routes
+app.include_router(password_reset_routes.router)
 
 print("🎯 All routes registered!")
 

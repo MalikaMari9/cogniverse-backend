@@ -118,6 +118,20 @@ def seed_configs(db: Session):
     "description": "SMTP port number",
     "status": "active",
 },
+
+{
+    "config_key": "frontendBaseUrl",
+    "config_value": "http://localhost:5173",
+    "description": "For the Link routing",
+    "status": "active",
+},
+
+{
+    "config_key": "useTestEmailOverride",
+    "config_value": "False",
+    "description": "For the Link routing",
+    "status": "active",
+},
     ]
 
     added = 0
