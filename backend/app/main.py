@@ -27,7 +27,8 @@ app.add_middleware(LoggingMiddleware)
 
 # --- CORS (temporary open; restrict later) ---
 origins = [
-
+ "http://46.137.203.26:5173",  # frontend preview
+        "http://46.137.203.26",       # future nginx production
     "http://localhost:5173",   # Vite frontend
     "http://127.0.0.1:5173",
 ]
