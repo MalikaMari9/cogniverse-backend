@@ -125,6 +125,9 @@ app.include_router(agentrelation_routes.router)
 from app.routes import scenario_routes
 app.include_router(scenario_routes.router)
 
+from app.routes import simulation_routes
+app.include_router(simulation_routes.router)
+
 from app.routes import result_routes
 app.include_router(result_routes.router)
 

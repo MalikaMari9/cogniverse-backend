@@ -83,6 +83,9 @@ JWT_SECRET_KEY=your_secret_key
 JWT_ALGORITHM=HS256
 STRIPE_PUBLIC_KEY=
 STRIPE_SECRET_KEY=
+SIMULATION_SERVICE_BASE_URL=http://localhost:8080
+SIMULATION_SERVICE_TIMEOUT_SECONDS=30
+# Optional: SIMULATION_SERVICE_API_KEY=your_key_if_required
 ⚠️ Never commit .env to Git — it’s ignored by .gitignore.
 
 5️⃣ Run the server (dev mode)
