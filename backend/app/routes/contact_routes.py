@@ -12,8 +12,18 @@ from app.services.jwt_service import get_current_user
 from app.services.logging_service import system_logger
 from app.services.dedupe_service import dedupe_service
 from app.services.utils.permissions_helper import enforce_permission_auto
-
-
+from fastapi import APIRouter, Form, Depends
+from sqlalchemy.orm import Session
+from app.controllers.contact_controller import create_contact
+from app.db.schemas.contact_schema import ContactCreate
+from app.db.database import get_db
+from app.services.utils.contact_helper import send_email
+from typing import Optional
+from app.db.models.user_model import User
+from app.services.jwt_service import get_current_user
+from app.services.utils.contact_helper import send_contact_notification
+import os
+from app.services.utils.config_helper import get_config_value
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 
 
@@ -99,6 +109,7 @@ async def get_contact(
 # ===============================
 # 🔹 Create Contact
 # ===============================
+"""
 @router.post("/", response_model=ContactResponse, status_code=201)
 async def create_contact(
     request: Request,
@@ -137,6 +148,54 @@ async def create_contact(
             db=db,
             action_type="CONTACT_CREATE_ERROR",
             user_id=current_user.userid,
+            details=f"Error creating contact: {str(e)}",
+            request=request,
+            status="active"
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+"""
+@router.post("/", response_model=ContactResponse, status_code=201)
+async def create_contact_route(
+    request: Request,
+    contact: ContactCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    try:
+        user_id = getattr(current_user, "userid", None)  # safe even if user is not logged in
+
+        enforce_permission_auto(db, current_user, "CONTACTS_SEND", request)
+        result = await contact_controller.create_contact(contact, db, user_id=user_id)
+
+        if dedupe_service.should_log_action("CONTACT_CREATE", user_id):
+            await system_logger.log_action(
+                db=db,
+                action_type="CONTACT_CREATE",
+                user_id=user_id,
+                details=f"Created new contact: {getattr(contact, 'name', 'Unnamed')}",
+                request=request,
+                status="active"
+            )
+
+        return result
+
+    except HTTPException as e:
+        user_id = getattr(current_user, "userid", None)
+        await system_logger.log_action(
+            db=db,
+            action_type="CONTACT_CREATE_FAILED",
+            user_id=user_id,
+            details=f"Failed to create contact: {e.detail}",
+            request=request,
+            status="active"
+        )
+        raise e
+    except Exception as e:
+        user_id = getattr(current_user, "userid", None)
+        await system_logger.log_action(
+            db=db,
+            action_type="CONTACT_CREATE_ERROR",
+            user_id=user_id,
             details=f"Error creating contact: {str(e)}",
             request=request,
             status="active"
@@ -281,3 +340,45 @@ async def hard_delete_contact(
             status="active"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
+    
+# ===============================
+# 🔹 Send Email (Contact Form)
+# ===============================
+@router.post("/contact/")
+async def contact_us(
+    name: str = Form(...),
+    email: str = Form(None),  # Optional email for reply
+    subject: str = Form("No Subject"),
+    message: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        print(f"📨 Received contact form: {name}, Email: {email}, Subject: {subject}")
+
+        # 🔹 Save contact entry first
+        contact_email = email or get_config_value(db, "fromEmail", os.getenv("FROM_EMAIL"))
+        contact_data = ContactCreate(
+            email=contact_email,
+            subject=subject,
+            message=message,
+            userid=None
+        )
+
+        print("💾 Saving to database...")
+        db_contact = contact_controller.create_contact(contact_data, db)
+        print(f"✅ Contact saved with ID: {db_contact.contactid}")
+
+        # 🔹 Send email notification
+        print("🔄 Sending notification email...")
+        success = send_contact_notification(db, user_name=name, subject=subject, message=message)
+
+        if success:
+            print("✅ Email sent successfully")
+            return {"message": "Thank you for your message! We'll get back to you soon."}
+        else:
+            print("❌ Email failed to send")
+            return {"message": "Message received, but email could not be delivered."}
+
+    except Exception as e:
+        print(f"❌ Contact form error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing your message")

@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # 👈 this loads your .env into os.environ
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -10,6 +13,8 @@ from app.db.seed.access_control_seed import seed_access_controls
 from app.db.seed.config_seed import seed_configs
 from app.db.seed.maintenance_seed import seed_maintenance
 from app.db.seed.credit_config_seed import seed_credit_packs
+
+
 init_db()
 
 app = FastAPI(
@@ -22,7 +27,8 @@ app.add_middleware(LoggingMiddleware)
 
 # --- CORS (temporary open; restrict later) ---
 origins = [
-
+ "http://46.137.203.26:5173",  # frontend preview
+        "http://46.137.203.26",       # future nginx production
     "http://localhost:5173",   # Vite frontend
     "http://127.0.0.1:5173",
 ]
@@ -173,6 +179,14 @@ app.include_router(credit_config_routes.router)
 from app.routes import billing_routes
 app.include_router(billing_routes.router)
 
+from app.routes import payment_routes
+app.include_router(payment_routes.router)
+
+from app.routes import credit_transaction_routes
+app.include_router(credit_transaction_routes.router)
+
+from app.routes import password_reset_routes
+app.include_router(password_reset_routes.router)
 
 print("🎯 All routes registered!")
 

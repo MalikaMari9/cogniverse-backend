@@ -5,8 +5,9 @@
 from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-
+from app.services.utils.config_helper import get_int_config
 from app.db.database import get_db
+from math import ceil
 from app.controllers.project_controller import (
     create_project,
     get_user_projects,
@@ -55,29 +56,46 @@ async def create_new_project(
 # ============================================================
 # 🔹 GET ALL USER PROJECTS (requires READ access)
 # ============================================================
-@router.get("/", response_model=List[ProjectResponse])
+@router.get("/", response_model=dict)
 async def get_all_projects(
     request: Request,
     include_deleted: Optional[bool] = Query(False, description="Include soft-deleted projects"),
+    page: int = Query(1, ge=1),
+    limit: Optional[int] = Query(None, description="Items per page"),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
         enforce_permission_auto(db, current_user, "PROJECTS", request)
-        result = get_user_projects(db, current_user.userid, include_deleted=include_deleted)
+
+        # 🔹 Fetch pagination limit from config if not provided
+        if limit is None:
+            limit = get_int_config(db, "ProjectPaginationLimit", 8)
+
+        all_projects = get_user_projects(db, current_user.userid, include_deleted)
+        total = len(all_projects)
+
+        start = (page - 1) * limit
+        end = start + limit
+        paginated = all_projects[start:end]
 
         await log_action(
             db, request, current_user,
             "PROJECT_LIST_VIEW",
-            details=f"Viewed all projects for user ID {current_user.userid} (include_deleted={include_deleted})"
+            details=f"Viewed page {page}/{ceil(total/limit)} (limit={limit}, include_deleted={include_deleted})"
         )
-        return result
+
+        return {
+            "items": [ProjectResponse.model_validate(p) for p in paginated],
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "total_pages": ceil(total / limit),
+        }
 
     except Exception as e:
         await log_error(db, request, current_user, "PROJECT_LIST_ERROR", e, "Error viewing project list")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
 # ============================================================
 # 🔹 GET SINGLE PROJECT (requires READ access)
 # ============================================================

@@ -185,3 +185,32 @@ async def get_results_by_agent_scenario_type(
             f"Error listing results for Agent {projectagentid}, Scenario {scenarioid}, Type {resulttype}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
+
+# ============================================================
+# 🔹 Get Results by Scenario
+# ============================================================
+@router.get("/by-scenario/{scenario_id}", response_model=List[ResultResponse])
+async def get_results_by_scenario(
+    scenario_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        data = result_controller.get_results_by_scenario(db, scenario_id)
+
+        await log_action(
+            db,
+            request,
+            current_user,
+            "RESULT_BY_SCENARIO",
+            details=f"Fetched {len(data)} results for scenario {scenario_id}",
+        )
+        return data
+
+    except Exception as e:
+        await log_error(
+            db, request, current_user, "RESULT_BY_SCENARIO_ERROR", e,
+            f"Error fetching results for scenario {scenario_id}"
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")

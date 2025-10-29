@@ -5,33 +5,71 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.db.models.user_model import User, UserStatus
 from app.db.schemas.user_schema import (
-    UserCreate,
+    UserAdminCreate,
     UserUpdate,
     UserAdminUpdate,
     UserStatusUpdate,
 )
-
-
+from app.db.schemas.user_schema import UserResponse
+from app.services.utils.config_helper import get_config_value
+from app.services.email_service import send_email_html
+from math import ceil
+from app.services.utils.config_helper import get_int_config
+from sqlalchemy import or_, cast, String
 # ============================================================
 # 🔹 Get All Users
 # ============================================================
-def get_all_users(
+
+
+
+
+def get_all_users_paginated(
     db: Session,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    limit: Optional[int] = None,
     status: Optional[str] = None,
     role: Optional[str] = None,
-) -> List[User]:
-    """Get all users with optional filtering"""
-    query = db.query(User)
+    q: Optional[str] = None,
+):
+    """Return users with pagination, filters, and keyword search."""
+    if limit is None:
+        limit = get_int_config(db, "LogPaginationLimit", 20)
 
-    if status:
-        query = query.filter(User.status == UserStatus(status))
-    if role:
-        query = query.filter(User.role == role)
+    query = db.query(User).filter(User.is_deleted == False)
 
-    return query.offset(skip).limit(limit).all()
+    # 🔍 Keyword search
+    if q:
+        q_like = f"%{q.lower()}%"
+        query = query.filter(
+            or_(
+                cast(User.username, String).ilike(q_like),
+                cast(User.email, String).ilike(q_like),
+                cast(User.role, String).ilike(q_like),
+                cast(User.status, String).ilike(q_like),
+            )
+        )
 
+    # ⚙️ Filters
+    if status and status.lower() != "all":
+        query = query.filter(cast(User.status, String).ilike(status))
+    if role and role.lower() != "all":
+        query = query.filter(cast(User.role, String).ilike(role))
+
+    total = query.count()
+    users = (
+        query.order_by(User.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "items": [UserResponse.model_validate(u) for u in users],
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": ceil(total / limit) if total else 1,
+    }
 
 # ============================================================
 # 🔹 Get User by ID
@@ -47,8 +85,11 @@ def get_user_by_id(db: Session, user_id: int) -> User:
 # ============================================================
 # 🔹 Create User
 # ============================================================
-def create_user(db: Session, user_data: UserCreate) -> User:
-    """Create a new user"""
+
+
+def create_user(db: Session, user_data: UserAdminCreate) -> User:
+    """Create a new user and send a welcome email."""
+
     # Check if username already exists
     if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -57,10 +98,14 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=400, detail="Email already exists")
 
+    # ✅ Use config default password if not provided
+    raw_password = user_data.password or get_config_value(db, "defaultPassword", "Test12345")
+
+    if not raw_password:
+        raise HTTPException(status_code=400, detail="Password cannot be empty")
+
     # Hash password
-    password_hash = bcrypt.hashpw(
-        user_data.password.encode("utf-8"), bcrypt.gensalt()
-    ).decode("utf-8")
+    password_hash = bcrypt.hashpw(raw_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     # Create user
     user = User(
@@ -73,9 +118,41 @@ def create_user(db: Session, user_data: UserCreate) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # ✅ Send welcome email
+    try:
+        frontend_base = get_config_value(db, "frontendBaseUrl", "http://localhost:5173")
+        login_link = f"{frontend_base.rstrip('/')}/login"
+
+        subject = "🎉 Welcome to CogniVerse!"
+        html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; background:#f9fafb; padding:20px;">
+            <div style="max-width:500px; margin:auto; background:white; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1); padding:30px;">
+              <h2 style="color:#4a90e2;">Your CogniVerse Account is Ready!</h2>
+              <p>Hello <b>{user.username}</b>,</p>
+              <p>An administrator has created your CogniVerse account. You can now log in using:</p>
+              <ul style="line-height:1.6;">
+                <li><b>Username:</b> {user.email}</li>
+                <li><b>Temporary Password:</b> {raw_password}</li>
+              </ul>
+              <p>Please log in and change your password immediately.</p>
+              <p style="text-align:center; margin:25px 0;">
+                <a href="{login_link}" style="background:#4a90e2; color:white; padding:10px 25px; border-radius:6px; text-decoration:none;">Go to Login</a>
+              </p>
+              <p style="font-size:13px; color:#999;">© {datetime.utcnow().year} CogniVerse. All rights reserved.</p>
+            </div>
+          </body>
+        </html>
+        """
+
+        send_email_html(db, to_email=user.email, subject=subject, html_body=html)
+        print(f"📧 Welcome email sent to {user.email}")
+
+    except Exception as e:
+        print(f"⚠️ Could not send welcome email: {e}")
+
     return user
-
-
 # ============================================================
 # 🔹 Update User (Non-Admin)
 # ============================================================

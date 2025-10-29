@@ -18,6 +18,11 @@ class UserCreate(UserBase):
     password: str
     role: str = "user"
 
+class UserAdminCreate(UserBase):
+    password: Optional[str] = None
+    role: str = "user"
+
+
 # ---------- Update ----------
 class UserUpdate(BaseModel):
     username: Optional[str] = None

@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     simulation_service_base_url: str = "https://new-model-r733.onrender.com"
     simulation_service_timeout_seconds: int = 30
     simulation_service_api_key: str | None = None
+    stripe_webhook_secret : str = ""
+
+    # Email settings
+    to_email: str | None = None
+    from_email: str | None = None
+    email_password: str | None = None
 
     class Config:
         env_file = ".env"

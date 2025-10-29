@@ -123,3 +123,18 @@ def list_results_by_agent_scenario_type(
         raise HTTPException(status_code=404, detail="No matching results found")
 
     return results
+
+# ============================================================
+# 🔹 GET RESULTS BY SCENARIO
+# ============================================================
+def get_results_by_scenario(db: Session, scenarioid: int):
+    """Retrieve all results linked to a given scenario."""
+    from app.db.models.result_model import Result  # adjust if needed
+
+    results = (
+        db.query(Result)
+        .filter(Result.scenarioid == scenarioid)
+        .order_by(Result.sequence_no.asc(), Result.created_at.asc())
+        .all()
+    )
+    return results

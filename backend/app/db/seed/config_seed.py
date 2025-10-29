@@ -85,6 +85,53 @@ def seed_configs(db: Session):
             "description": "Maximum simulation runtime per request (in seconds)",
             "status": "active",
         },
+        
+        {
+    "config_key": "fromEmail",
+    "config_value": "xxxx@placeholder.com",
+    "description": "Default sender email (edit in Admin Panel)",
+    "status": "active",
+},
+
+{
+    "config_key": "toEmail",
+    "config_value": "xxxx@placeholder.com",
+    "description": "Default receiver email (edit in Admin Panel)",
+    "status": "active",
+},
+{
+    "config_key": "emailPassword",
+    "config_value": "xxxx xxxx xxxx xxxx",
+    "description": "Email password (App Password) — do not expose publicly",
+    "status": "active",
+},
+{
+    "config_key": "smtpHost",
+    "config_value": "smtp.gmail.com",
+    "description": "SMTP server hostname",
+    "status": "active",
+},
+
+{
+    "config_key": "smtpPort",
+    "config_value": "587",
+    "description": "SMTP port number",
+    "status": "active",
+},
+
+{
+    "config_key": "frontendBaseUrl",
+    "config_value": "http://localhost:5173",
+    "description": "For the Link routing",
+    "status": "active",
+},
+
+{
+    "config_key": "useTestEmailOverride",
+    "config_value": "False",
+    "description": "For the Link routing",
+    "status": "active",
+},
     ]
 
     added = 0

@@ -8,12 +8,12 @@ from typing import List, Optional
 
 from app.db.database import get_db
 from app.db.schemas.user_schema import (
-    UserCreate, UserUpdate, UserAdminUpdate, UserStatusUpdate,
+    UserAdminCreate, UserUpdate, UserAdminUpdate, UserStatusUpdate,
     UserResponse, UserListResponse, MessageResponse,
     UserStatusResponse, BulkUserOperation, BulkOperationResponse
 )
 from app.controllers.user_management_controller import (
-    get_all_users, get_user_by_id, create_user, update_user,
+    get_all_users_paginated, get_user_by_id, create_user, update_user,
     admin_update_user, change_user_status, delete_user,
     hard_delete_user, bulk_change_status, bulk_delete_users,
     restore_user
@@ -26,50 +26,51 @@ from app.db.models.user_model import User
 
 router = APIRouter(prefix="/admin/users", tags=["User Management"])
 
-
-# ============================================================
-# 🔹 Get All Users
-# ============================================================
-@router.get("/", response_model=UserListResponse)
+@router.get("/", response_model=dict)
 async def list_users(
     request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
-    status: Optional[str] = Query(None),
-    role: Optional[str] = Query(None),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
+    status: Optional[str] = Query(None, description="Filter by user status"),
+    role: Optional[str] = Query(None, description="Filter by role"),
+    q: Optional[str] = Query(None, description="Keyword search (username/email/role/status)"),
     current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
+    """Return a paginated, filterable, searchable user list."""
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
 
-        skip = (page - 1) * page_size
-        users = get_all_users(db, skip=skip, limit=page_size, status=status, role=role)
-        total_users = db.query(User).count()
+        result = get_all_users_paginated(
+            db=db,
+            page=page,
+            limit=page_size,
+            status=status,
+            role=role,
+            q=q,
+        )
 
         if dedupe_service.should_log_action("USER_LIST_VIEW", current_user.userid):
             await system_logger.log_action(
                 db=db,
                 action_type="USER_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed user list (page {page}, status={status}, role={role})",
+                details=f"Viewed user list (page={page}, status={status}, role={role}, q='{q}')",
                 request=request,
-                status="active"
+                status="active",
             )
-
-        return {"users": users, "total": total_users, "page": page, "page_size": page_size}
+        return result
 
     except Exception as e:
         await system_logger.log_action(
             db=db,
             action_type="USER_LIST_ERROR",
             user_id=current_user.userid,
-            details=f"Error viewing user list: {str(e)}",
+            details=f"Error listing users: {str(e)}",
             request=request,
-            status="active"
+            status="active",
         )
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 # ============================================================
 # 🔹 Get User by ID
@@ -126,7 +127,7 @@ async def get_user(
 @router.post("/", response_model=UserResponse, status_code=201)
 async def create_new_user(
     request: Request,
-    user_data: UserCreate,
+    user_data: UserAdminCreate,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

@@ -62,14 +62,19 @@ def register_user(db: Session, data: UserCreate):
 # LOGIN USER
 # -------------------------------------------
 def login_user(db: Session, data: UserLogin):
-    # Find user by email or username
+    # 🔍 Find user by email or username
     user = (
         db.query(User)
         .filter((User.email.ilike(data.identifier)) | (User.username == data.identifier))
         .first()
     )
 
-    if not user or not verify_password(data.password, user.password_hash):
+    # 🚫 User not found
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 🚫 Wrong password
+    if not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # 🪙 Ensure billing wallet exists

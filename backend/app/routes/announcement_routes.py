@@ -18,49 +18,74 @@ from app.services.utils.permissions_helper import enforce_permission_auto
 
 router = APIRouter(prefix="/announcements", tags=["Announcements"])
 
-
 # ===============================
-# 🔹 Get All Announcements
+# 🔹 Get All Announcements (Paginated, Search, Filter, Config-Driven)
 # ===============================
-@router.get("/", response_model=List[AnnouncementResponse])
+@router.get("/", response_model=dict)
 async def get_all_announcements(
     request: Request,
-    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted announcements"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: Optional[int] = Query(
+        None, ge=1, le=100, description="Items per page (from config if not provided)"
+    ),
+    include_deleted: Optional[bool] = Query(
+        False, description="Include soft-deleted announcements"
+    ),
+    q: Optional[str] = Query(None, description="Search keyword (title/content/username/status)"),
+    status: Optional[str] = Query(None, description="Filter by announcement status"),
     current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
+    """
+    Retrieve paginated announcements with search + status filters.
+    Logs viewing action unless deduped.
+    """
     try:
+        # ✅ Permission check
         enforce_permission_auto(db, current_user, "ANNOUNCEMENTS", request)
 
-        result = announcement_controller.get_all_announcements(db, include_deleted=include_deleted)
+        # ✅ Controller call with new filters
+        result = announcement_controller.get_all_announcements_paginated(
+            db=db,
+            page=page,
+            limit=limit,
+            include_deleted=include_deleted,
+            q=q,
+            status=status,
+        )
 
-        # 🪶 Deduped log
-        if dedupe_service.should_log_action("ANNOUNCEMENT_LIST_VIEW", current_user.userid):
-            total = len(result or [])
-            active = len([a for a in result if a.status == "active"])
+        # ✅ Deduped log to prevent spamming
+        log_key = f"ANNOUNCEMENT_LIST_VIEW_{current_user.userid}"
+        if dedupe_service.should_log_action(log_key, current_user.userid):
             await system_logger.log_action(
                 db=db,
                 action_type="ANNOUNCEMENT_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed announcements list (include_deleted={include_deleted}) "
-                        f"({total} total, {active} active)",
+                details=(
+                    f"Viewed announcements list "
+                    f"(page={page}, include_deleted={include_deleted}, "
+                    f"q='{q}', status='{status}') → total={result['total']} items"
+                ),
                 request=request,
-                status="active"
+                status="active",
             )
 
         return result
 
     except Exception as e:
+        # 🧩 Log error to system_log_tbl
         await system_logger.log_action(
             db=db,
             action_type="ANNOUNCEMENT_LIST_ERROR",
             user_id=current_user.userid,
-            details=f"Error viewing announcements list: {str(e)}",
+            details=(
+                f"Error viewing announcements list "
+                f"(page={page}, q='{q}', status='{status}'): {str(e)}"
+            ),
             request=request,
-            status="active"
+            status="active",
         )
-        raise
-
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ===============================
 # 🔹 Get Single Announcement
@@ -301,6 +326,7 @@ async def hard_delete_announcement(
             request=request,
             status="inactive"
         )
+
 
         return result
 
