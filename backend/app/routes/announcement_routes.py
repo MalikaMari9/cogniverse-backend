@@ -18,51 +18,72 @@ from app.services.utils.permissions_helper import enforce_permission_auto
 
 router = APIRouter(prefix="/announcements", tags=["Announcements"])
 
-
 # ===============================
-# 🔹 Get All Announcements (Paginated, Config-Driven)
+# 🔹 Get All Announcements (Paginated, Search, Filter, Config-Driven)
 # ===============================
 @router.get("/", response_model=dict)
 async def get_all_announcements(
     request: Request,
     page: int = Query(1, ge=1, description="Page number"),
-    limit: Optional[int] = Query(None, ge=1, le=100, description="Items per page (from config if not provided)"),
-    include_deleted: Optional[bool] = Query(False, description="Include soft-deleted announcements"),
+    limit: Optional[int] = Query(
+        None, ge=1, le=100, description="Items per page (from config if not provided)"
+    ),
+    include_deleted: Optional[bool] = Query(
+        False, description="Include soft-deleted announcements"
+    ),
+    q: Optional[str] = Query(None, description="Search keyword (title/content/username/status)"),
+    status: Optional[str] = Query(None, description="Filter by announcement status"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """
+    Retrieve paginated announcements with search + status filters.
+    Logs viewing action unless deduped.
+    """
     try:
+        # ✅ Permission check
         enforce_permission_auto(db, current_user, "ANNOUNCEMENTS", request)
 
+        # ✅ Controller call with new filters
         result = announcement_controller.get_all_announcements_paginated(
             db=db,
             page=page,
             limit=limit,
             include_deleted=include_deleted,
+            q=q,
+            status=status,
         )
 
-        # 🪶 Deduped log
-        if dedupe_service.should_log_action("ANNOUNCEMENT_LIST_VIEW", current_user.userid):
+        # ✅ Deduped log to prevent spamming
+        log_key = f"ANNOUNCEMENT_LIST_VIEW_{current_user.userid}"
+        if dedupe_service.should_log_action(log_key, current_user.userid):
             await system_logger.log_action(
                 db=db,
                 action_type="ANNOUNCEMENT_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed announcements list (page={page}, include_deleted={include_deleted}) "
-                        f"→ total={result['total']} items",
+                details=(
+                    f"Viewed announcements list "
+                    f"(page={page}, include_deleted={include_deleted}, "
+                    f"q='{q}', status='{status}') → total={result['total']} items"
+                ),
                 request=request,
-                status="active"
+                status="active",
             )
 
         return result
 
     except Exception as e:
+        # 🧩 Log error to system_log_tbl
         await system_logger.log_action(
             db=db,
             action_type="ANNOUNCEMENT_LIST_ERROR",
             user_id=current_user.userid,
-            details=f"Error viewing announcements list: {str(e)}",
+            details=(
+                f"Error viewing announcements list "
+                f"(page={page}, q='{q}', status='{status}'): {str(e)}"
+            ),
             request=request,
-            status="active"
+            status="active",
         )
         raise HTTPException(status_code=500, detail="Internal server error")
 

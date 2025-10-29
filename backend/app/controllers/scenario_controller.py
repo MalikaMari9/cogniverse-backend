@@ -32,23 +32,10 @@ def get_scenario_by_id(db: Session, scenarioid: int, include_deleted: bool = Fal
 
 
 # ============================================================
-# 🔹 CREATE SCENARIO
+# 🔹 CREATE SCENARIO — also activates Project
 # ============================================================
 def create_scenario(db: Session, scenario_data: ScenarioCreate):
-    """Create a new scenario entry."""
-     # ====================================================
-        # 🧠 AI Name Generation Placeholder
-        # ====================================================
-        # TODO (AI Architect): 
-        # When integrating the AI module, use scenario_data.prompt 
-        # to generate a concise scenario name (<= 100 chars).
-        #
-        # Example:
-        # scenario_name = ai_generate_summary(scenario_data.prompt)
-        # scenario_data.name = scenario_name
-        #
-        # For now, we fallback to truncating the prompt safely.
-        # ====================================================
+    """Create a new scenario entry and mark its project as active."""
     try:
         scenarioname = scenario_data.scenarioname or "Untitled Scenario"
         if len(scenarioname) > 100:
@@ -64,6 +51,23 @@ def create_scenario(db: Session, scenario_data: ScenarioCreate):
         db.add(new_scenario)
         db.commit()
         db.refresh(new_scenario)
+
+        # ====================================================
+        # 🟢 Activate the related project
+        # ====================================================
+        from app.db.models.project_model import Project, ProjectStatus
+
+        project = db.query(Project).filter(
+            Project.projectid == new_scenario.projectid,
+            Project.is_deleted == False
+        ).first()
+
+        if project and project.status != ProjectStatus.active:
+            project.status = ProjectStatus.active
+            db.commit()
+            db.refresh(project)
+            print(f"✅ Project {project.projectid} set to ACTIVE")
+
         return new_scenario
 
     except Exception as e:
@@ -121,3 +125,4 @@ def hard_delete_scenario(db: Session, scenarioid: int):
     db.delete(scenario)
     db.commit()
     return {"detail": f"Scenario {scenarioid} permanently deleted"}
+

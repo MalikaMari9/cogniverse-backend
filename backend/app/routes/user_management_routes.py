@@ -26,22 +26,18 @@ from app.db.models.user_model import User
 
 router = APIRouter(prefix="/admin/users", tags=["User Management"])
 
-# ============================================================
-# 🔹 Get All Users (Paginated, Config-Driven)
-# ============================================================
 @router.get("/", response_model=dict)
 async def list_users(
     request: Request,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
-    status: Optional[str] = Query(None),
-    role: Optional[str] = Query(None),
+    status: Optional[str] = Query(None, description="Filter by user status"),
+    role: Optional[str] = Query(None, description="Filter by role"),
+    q: Optional[str] = Query(None, description="Keyword search (username/email/role/status)"),
     current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """
-    Returns a paginated list of users, with page size taken from config if not provided.
-    """
+    """Return a paginated, filterable, searchable user list."""
     try:
         enforce_permission_auto(db, current_user, "USER_MANAGEMENT", request)
 
@@ -50,20 +46,19 @@ async def list_users(
             page=page,
             limit=page_size,
             status=status,
-            role=role
+            role=role,
+            q=q,
         )
 
-        # 🪶 Deduped logging
         if dedupe_service.should_log_action("USER_LIST_VIEW", current_user.userid):
             await system_logger.log_action(
                 db=db,
                 action_type="USER_LIST_VIEW",
                 user_id=current_user.userid,
-                details=f"Viewed user list (page={page}, status={status}, role={role})",
+                details=f"Viewed user list (page={page}, status={status}, role={role}, q='{q}')",
                 request=request,
-                status="active"
+                status="active",
             )
-
         return result
 
     except Exception as e:
@@ -73,10 +68,9 @@ async def list_users(
             user_id=current_user.userid,
             details=f"Error listing users: {str(e)}",
             request=request,
-            status="active"
+            status="active",
         )
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 # ============================================================
 # 🔹 Get User by ID

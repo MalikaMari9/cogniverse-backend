@@ -1,21 +1,55 @@
+# ===============================
+# app/controllers/system_log_controller.py — Final Unified Version
+# ===============================
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from sqlalchemy import cast, String, or_
+from math import ceil
 from app.db.models.system_log_model import SystemLog
+from app.db.models.user_model import User
 from app.db.schemas.system_log_schema import SystemLogCreate, SystemLogResponse
 from app.services.utils.config_helper import get_int_config
-from math import ceil
-def get_all_logs_paginated(db: Session, page: int = 1, limit: int | None = None):
-    # 🔹 Use config if no explicit limit provided
+
+
+# ============================================================
+# 🔹 Get All Logs (Paginated, Searchable)
+# ============================================================
+def get_all_logs_paginated(
+    db: Session,
+    page: int = 1,
+    limit: int | None = None,
+    q: str | None = None,
+):
+    """
+    Return paginated system logs with optional search by username, action_type, or details.
+    """
     if limit is None:
         limit = get_int_config(db, "LogPaginationLimit", 50)
 
-    query = db.query(SystemLog).order_by(SystemLog.logid.desc())
+    # Base query
+    query = db.query(SystemLog).join(User, isouter=True)
 
+    # 🔍 Keyword search
+    if q:
+        q_like = f"%{q.lower()}%"
+        query = query.filter(
+            or_(
+                cast(SystemLog.action_type, String).ilike(q_like),
+                cast(SystemLog.details, String).ilike(q_like),
+                cast(User.username, String).ilike(q_like),
+                cast(SystemLog.status, String).ilike(q_like),
+            )
+        )
+
+    # 🕓 Order by newest first
+    query = query.order_by(SystemLog.logid.desc())
+
+    # Pagination
     total = query.count()
-    start = (page - 1) * limit
-    logs = query.offset(start).limit(limit).all()
+    logs = query.offset((page - 1) * limit).limit(limit).all()
 
-    # Add username to each log
+    # 🧩 Add username field
     for log in logs:
         log.username = log.user.username if log.user else "System"
 
@@ -26,62 +60,71 @@ def get_all_logs_paginated(db: Session, page: int = 1, limit: int | None = None)
         "total": total,
         "total_pages": ceil(total / limit) if total else 1,
     }
+
+
+# ============================================================
+# 🔹 Get All Logs (No Pagination)
+# ============================================================
 def get_all_logs(db: Session):
-    logs = db.query(SystemLog).all()
-    
-    # Add username to each log
+    logs = db.query(SystemLog).join(User, isouter=True).order_by(SystemLog.logid.desc()).all()
+
     for log in logs:
-        if log.user:
-            log.username = log.user.username
-        else:
-            log.username = "System"
-    
+        log.username = log.user.username if log.user else "System"
     return logs
 
-def get_log_by_id(log_id: int, db: Session):
+
+# ============================================================
+# 🔹 Get Single Log by ID
+# ============================================================
+def get_log_by_id(db: Session, log_id: int):
     log = db.query(SystemLog).filter(SystemLog.logid == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="System log not found")
-    
-    # Add username
-    if log.user:
-        log.username = log.user.username
-    else:
-        log.username = "System"
-    
+
+    log.username = log.user.username if log.user else "System"
     return log
 
-def create_log(log_data: SystemLogCreate, db: Session):
+
+# ============================================================
+# 🔹 Create New Log
+# ============================================================
+def create_log(db: Session, log_data: SystemLogCreate):
     new_log = SystemLog(**log_data.model_dump())
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
-    
-    # Add username to response
-    if new_log.user:
-        new_log.username = new_log.user.username
-    else:
-        new_log.username = "System"
-    
+
+    new_log.username = new_log.user.username if new_log.user else "System"
     return new_log
 
-def delete_log(log_id: int, db: Session):
+
+# ============================================================
+# 🔹 Delete Single Log
+# ============================================================
+def delete_log(db: Session, log_id: int):
     log = db.query(SystemLog).filter(SystemLog.logid == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="System log not found")
 
     db.delete(log)
     db.commit()
-    return {"detail": "System log deleted successfully"}
+    return {"message": f"System log #{log_id} deleted successfully."}
 
-# Add bulk delete function
-def delete_logs_bulk(log_ids: list, db: Session):
+
+# ============================================================
+# 🔹 Bulk Delete Logs
+# ============================================================
+def delete_logs_bulk(db: Session, log_ids: list[int]):
+    if not log_ids:
+        raise HTTPException(status_code=400, detail="No log IDs provided.")
+
     logs = db.query(SystemLog).filter(SystemLog.logid.in_(log_ids)).all()
     if not logs:
-        raise HTTPException(status_code=404, detail="No logs found to delete")
-    
+        raise HTTPException(status_code=404, detail="No matching logs found.")
+
+    count = len(logs)
     for log in logs:
         db.delete(log)
-    
+
     db.commit()
-    return {"detail": f"{len(logs)} system logs deleted successfully"}
+    return {"message": f"{count} system logs deleted successfully."}

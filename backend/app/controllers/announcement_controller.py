@@ -6,7 +6,7 @@ from app.db.models.user_model import User
 from app.db.schemas.announcement_schema import AnnouncementCreate, AnnouncementUpdate, AnnouncementResponse
 from app.services.utils.config_helper import get_int_config
 from math import ceil
-
+from sqlalchemy import cast, String, or_
 # ============================================================
 # 🔹 GET ALL ANNOUNCEMENTS (Config-driven Pagination)
 # ============================================================
@@ -15,32 +15,55 @@ def get_all_announcements_paginated(
     page: int = 1,
     limit: int | None = None,
     include_deleted: bool = False,
+    q: str | None = None,
+    status: str | None = None,
 ):
-    """Retrieve announcements with pagination and soft-delete control."""
+    """Retrieve announcements with pagination, filters, and soft-delete control."""
     if limit is None:
         limit = get_int_config(db, "LogPaginationLimit", 10)
 
-    query = db.query(Announcement)
+    # Base query + join for usernames
+    query = (
+        db.query(Announcement, User.username)
+        .join(User, User.userid == Announcement.created_by, isouter=True)
+    )
+
     if not include_deleted:
         query = query.filter(Announcement.is_deleted == False)
 
+    # 🔍 Keyword search (title / content / username / status)
+    if q:
+        q_like = f"%{q.lower()}%"
+        query = query.filter(
+            or_(
+                cast(Announcement.title, String).ilike(q_like),
+                cast(Announcement.content, String).ilike(q_like),
+                cast(User.username, String).ilike(q_like),
+                cast(Announcement.status, String).ilike(q_like),
+            )
+        )
+
+    # ⚙️ Status filter
+    if status and status.lower() != "all":
+        query = query.filter(cast(Announcement.status, String).ilike(status))
+
     total = query.count()
-    start = (page - 1) * limit
-    announcements = (
+
+    rows = (
         query.order_by(Announcement.created_at.desc())
-        .offset(start)
+        .offset((page - 1) * limit)
         .limit(limit)
         .all()
     )
 
-    # ✅ Attach usernames and convert to Pydantic models
-    results = []
-    for ann in announcements:
-        ann.created_by_username = ann.user.username if ann.user else "Unknown User"
-        results.append(AnnouncementResponse.model_validate(ann))
+    # Convert for response
+    items = []
+    for ann, username in rows:
+        ann.created_by_username = username or "Unknown User"
+        items.append(AnnouncementResponse.model_validate(ann))
 
     return {
-        "items": results,
+        "items": items,
         "page": page,
         "limit": limit,
         "total": total,

@@ -15,10 +15,11 @@ from app.services.utils.config_helper import get_config_value
 from app.services.email_service import send_email_html
 from math import ceil
 from app.services.utils.config_helper import get_int_config
-
+from sqlalchemy import or_, cast, String
 # ============================================================
 # 🔹 Get All Users
 # ============================================================
+
 
 
 
@@ -28,27 +29,42 @@ def get_all_users_paginated(
     limit: Optional[int] = None,
     status: Optional[str] = None,
     role: Optional[str] = None,
+    q: Optional[str] = None,
 ):
-    """Return users with pagination and optional filters"""
+    """Return users with pagination, filters, and keyword search."""
     if limit is None:
         limit = get_int_config(db, "LogPaginationLimit", 20)
 
-    query = db.query(User)
+    query = db.query(User).filter(User.is_deleted == False)
 
-    if status:
-        query = query.filter(User.status == UserStatus(status))
-    if role:
-        query = query.filter(User.role == role)
+    # 🔍 Keyword search
+    if q:
+        q_like = f"%{q.lower()}%"
+        query = query.filter(
+            or_(
+                cast(User.username, String).ilike(q_like),
+                cast(User.email, String).ilike(q_like),
+                cast(User.role, String).ilike(q_like),
+                cast(User.status, String).ilike(q_like),
+            )
+        )
+
+    # ⚙️ Filters
+    if status and status.lower() != "all":
+        query = query.filter(cast(User.status, String).ilike(status))
+    if role and role.lower() != "all":
+        query = query.filter(cast(User.role, String).ilike(role))
 
     total = query.count()
-    start = (page - 1) * limit
-    users = query.offset(start).limit(limit).all()
-
-    # ✅ Convert ORM users to Pydantic models
-    user_list = [UserResponse.model_validate(u) for u in users]
+    users = (
+        query.order_by(User.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
 
     return {
-        "items": user_list,
+        "items": [UserResponse.model_validate(u) for u in users],
         "page": page,
         "limit": limit,
         "total": total,

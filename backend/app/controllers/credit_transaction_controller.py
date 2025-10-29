@@ -2,7 +2,7 @@
 from math import ceil
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-
+from sqlalchemy import cast, String
 from app.db.models.credit_model import CreditTransaction
 from app.db.models.user_model import User
 from app.db.schemas.credit_transaction_schema import (
@@ -32,51 +32,57 @@ def create_transaction(db: Session, tx_data: CreditTransactionCreate):
             print(f"[Credit Sync Error] {e}")
 
     return new_tx
-
-
-# ──────────────────────────────────────────────────────────────
-# 2️⃣ Get all transactions (Paginated + Config-driven + username)
-# ──────────────────────────────────────────────────────────────
 def get_all_transactions_paginated(
     db: Session,
     page: int = 1,
     limit: int | None = None,
+    q: str | None = None,
+    status: str | None = None,
 ):
     """
-    Return paginated credit transactions with the user's username included.
-    Page size is taken from config key 'LogPaginationLimit' when not provided.
-    Response shape:
-      {
-        "items": [ {<CreditTransaction fields...>, "username": "<USN or 'Unknown'>"} ],
-        "page": <int>,
-        "limit": <int>,
-        "total": <int>,
-        "total_pages": <int>
-      }
+    Return paginated credit transactions with username.
+    Supports filters: q (search), status.
     """
 
     if limit is None:
         limit = get_int_config(db, "LogPaginationLimit", 10)
 
-    # Base count query (no joins, safe for count)
-    base_q = db.query(CreditTransaction).filter(CreditTransaction.is_deleted == False)
-    total = base_q.count()
-
-    # Data fetch query (join to get username)
-    q = (
+    # start with base query + join (only once!)
+    query = (
         db.query(CreditTransaction, User.username)
         .join(User, User.userid == CreditTransaction.userid, isouter=True)
         .filter(CreditTransaction.is_deleted == False)
-        .order_by(CreditTransaction.created_at.desc())
-        .offset((page - 1) * limit)
-        .limit(limit)
     )
 
-    rows = q.all()  # each row is (CreditTransaction, username)
+    # 🔍 Search (username, reason, packid, credit_type, status)
+    if q:
+        q_like = f"%{q.lower()}%"
+        query = query.filter(
+            (User.username.ilike(q_like))
+            | (CreditTransaction.reason.ilike(q_like))
+            | (CreditTransaction.packid.ilike(q_like))
+            | (cast(CreditTransaction.credit_type, String).ilike(q_like))
+            | (cast(CreditTransaction.status, String).ilike(q_like))
+        )
 
+    # ⚙️ Status filter
+    if status and status.lower() != "all":
+        query = query.filter(cast(CreditTransaction.status, String).ilike(status))
+
+    # Count total first
+    total = query.count()
+
+    # Fetch paginated results (no need to join again)
+    rows = (
+        query.order_by(CreditTransaction.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    # Build response
     items = []
     for tx, username in rows:
-        # validate with Pydantic, then attach username
         tx_data = CreditTransactionResponse.model_validate(tx).model_dump()
         tx_data["username"] = username or "Unknown"
         items.append(tx_data)
@@ -88,8 +94,6 @@ def get_all_transactions_paginated(
         "total": total,
         "total_pages": ceil(total / limit) if total else 1,
     }
-
-
 # ──────────────────────────────────────────────────────────────
 # 3️⃣ Get transaction by ID
 # ──────────────────────────────────────────────────────────────
