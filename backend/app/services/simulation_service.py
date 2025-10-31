@@ -115,6 +115,8 @@ def _slim_simulation(data: Dict[str, Any]) -> Dict[str, Any]:
             "last_action": a.get("last_action"),
             "turn_count": a.get("turn_count"),
             "position": a.get("position"),
+            "thought_process": a.get("thought_process"),
+
         })
 
     # 🧠 Filter events
@@ -136,6 +138,7 @@ def _slim_simulation(data: Dict[str, Any]) -> Dict[str, Any]:
             or "entered the scenario" in e.get("details", "")
             or "Memory corrosion applied" in summary
             or "Memory corrosion" in summary
+             or summary.strip().lower() == "internal reasoning"
         ):
             continue
 
@@ -204,22 +207,48 @@ async def get_simulation(simulation_id: str, slim: bool = False) -> Dict[str, An
 # =====================================================
 # 🧩 ADVANCE SIMULATION
 # =====================================================
+# =====================================================
+# 🧩 ADVANCE SIMULATION
+# =====================================================
 async def advance_simulation(simulation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Advance simulation up to MAX_ATTEMPTS until at least one new event exists."""
+    """Advance simulation up to MAX_ATTEMPTS until at least one *meaningful* new event exists."""
     MAX_ADVANCE_ATTEMPTS = 5
     final_result = None
+
+    def _is_meaningful_event(e: dict) -> bool:
+        """Return True if event is not a system/meta message."""
+        summary = (e.get("summary") or e.get("text") or "").lower()
+        event_type = (e.get("type") or "").lower()
+        if not summary:
+            return False
+        # skip empty, system, and meta chatter
+        return not (
+            event_type == "system"
+            or "memory corrosion" in summary
+            or "internal reasoning" in summary
+            or "agents initialized" in summary
+            or "simulation created" in summary
+        )
 
     for attempt in range(1, MAX_ADVANCE_ATTEMPTS + 1):
         raw = await _forward_request("POST", f"/simulations/{simulation_id}/advance", payload)
         slimmed = _slim_simulation(raw)
         sim = slimmed.get("simulation", {})
-        events = sim.get("events", [])
+        events = sim.get("events", []) or []
 
-        print(f"[DEBUG] Advance attempt {attempt}: {len(events)} events after filtering")
+        # Filter out meta chatter before deciding
+        meaningful_events = [e for e in events if _is_meaningful_event(e)]
 
-        if events:
+        print(
+            f"[DEBUG] Advance attempt {attempt}: "
+            f"{len(events)} total → {len(meaningful_events)} meaningful"
+        )
+
+        if meaningful_events:
             print(f"[DEBUG] ✅ Returning result after {attempt} advance step(s)")
-            return slimmed
+            # Replace event list with only meaningful ones before returning
+            sim["events"] = meaningful_events
+            return {"simulation": sim}
 
         final_result = slimmed
         await asyncio.sleep(0.5)
