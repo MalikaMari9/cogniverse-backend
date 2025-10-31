@@ -134,6 +134,8 @@ def _slim_simulation(data: Dict[str, Any]) -> Dict[str, Any]:
             "Agents initialized" in summary
             or "Simulation created" in summary
             or "entered the scenario" in e.get("details", "")
+            or "Memory corrosion applied" in summary
+            or "Memory corrosion" in summary
         ):
             continue
 
@@ -232,4 +234,18 @@ async def advance_simulation(simulation_id: str, payload: Dict[str, Any]) -> Dic
 async def trigger_fate(simulation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Trigger fate event and slim output."""
     raw = await _forward_request("POST", f"/simulations/{simulation_id}/fate", payload)
+    return _slim_simulation(raw)
+
+# =====================================================
+# 🧩 PLease add a pause and stop
+# =====================================================
+
+async def pause_simulation(simulation_id: str) -> Dict[str, Any]:
+    """Pause an active simulation."""
+    raw = await _forward_request("POST", f"/simulations/{simulation_id}/pause")
+    return _slim_simulation(raw)
+
+async def stop_simulation(simulation_id: str) -> Dict[str, Any]:
+    """Stop (terminate) an active simulation."""
+    raw = await _forward_request("POST", f"/simulations/{simulation_id}/stop")
     return _slim_simulation(raw)

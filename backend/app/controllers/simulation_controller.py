@@ -50,3 +50,9 @@ async def trigger_simulation_fate(
     data = _serialize(payload)
     # Ensure an empty body is still sent as {} instead of None
     return await simulation_service.trigger_fate(simulation_id, data or {})
+
+async def pause_simulation(simulation_id: str) -> Dict[str, Any]:
+    return await simulation_service.pause_simulation(simulation_id)
+
+async def stop_simulation(simulation_id: str) -> Dict[str, Any]:
+    return await simulation_service.stop_simulation(simulation_id)

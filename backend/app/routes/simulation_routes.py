@@ -207,3 +207,53 @@ async def trigger_simulation_fate(
             f"Error triggering fate for simulation {simulation_id}",
         )
         raise HTTPException(status_code=500, detail="Simulation service error") from exc
+
+
+@router.post("/{simulation_id}/pause", status_code=status.HTTP_200_OK)
+async def pause_simulation(
+    simulation_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = await simulation_controller.pause_simulation(simulation_id)
+        await log_action(
+            db,
+            request,
+            current_user,
+            "SIMULATION_PAUSE",
+            details=f"Paused simulation {simulation_id}",
+        )
+        return result
+    except HTTPException as exc:
+        await log_error(db, request, current_user, "SIMULATION_PAUSE_FAILED", exc)
+        raise
+    except Exception as exc:
+        await log_error(db, request, current_user, "SIMULATION_PAUSE_ERROR", exc)
+        raise HTTPException(status_code=500, detail="Simulation service error") from exc
+
+
+@router.post("/{simulation_id}/stop", status_code=status.HTTP_200_OK)
+async def stop_simulation(
+    simulation_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = await simulation_controller.stop_simulation(simulation_id)
+        await log_action(
+            db,
+            request,
+            current_user,
+            "SIMULATION_STOP",
+            details=f"Stopped simulation {simulation_id}",
+        )
+        return result
+    except HTTPException as exc:
+        await log_error(db, request, current_user, "SIMULATION_STOP_FAILED", exc)
+        raise
+    except Exception as exc:
+        await log_error(db, request, current_user, "SIMULATION_STOP_ERROR", exc)
+        raise HTTPException(status_code=500, detail="Simulation service error") from exc
