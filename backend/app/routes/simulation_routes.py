@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-
+import asyncio
 from app.controllers import simulation_controller
 from app.db.database import get_db
 from app.db.schemas.simulation_schema import (
@@ -24,37 +24,49 @@ async def create_simulation(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    try:
-        result = await simulation_controller.create_simulation(payload)
-        await log_action(
-            db,
-            request,
-            current_user,
-            "SIMULATION_CREATE",
-            details=f"Created simulation for scenario: {payload.scenario[:80]}",
-        )
-        return result  # ✅ direct pass-through (no model trimming)
-    except HTTPException as exc:
-        await log_error(
-            db,
-            request,
-            current_user,
-            "SIMULATION_CREATE_FAILED",
-            exc,
-            "Failed to create simulation",
-        )
-        raise
-    except Exception as exc:  # pragma: no cover
-        await log_error(
-            db,
-            request,
-            current_user,
-            "SIMULATION_CREATE_ERROR",
-            exc,
-            "Error creating simulation",
-        )
-        raise HTTPException(status_code=500, detail="Simulation service error") from exc
-
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            result = await simulation_controller.create_simulation(payload)
+            await log_action(
+                db,
+                request,
+                current_user,
+                "SIMULATION_CREATE",
+                details=f"Created simulation for scenario: {payload.scenario[:80]}",
+            )
+            return result
+        except HTTPException as exc:
+            # 🔁 Retry transient errors only
+            if exc.status_code in {502, 503, 504} and attempt < max_attempts:
+                print(f"[Retry {attempt}/{max_attempts}] Provider error: {exc.detail}")
+                await asyncio.sleep(1 * attempt)
+                continue
+            # Permanent or final failure
+            await log_error(
+                db,
+                request,
+                current_user,
+                "SIMULATION_CREATE_FAILED",
+                exc,
+                f"Simulation create failed (attempt {attempt})",
+            )
+            raise
+        except Exception as exc:
+            # 🔁 Retry generic error
+            if attempt < max_attempts:
+                print(f"[Retry {attempt}/{max_attempts}] Generic error: {exc}")
+                await asyncio.sleep(1 * attempt)
+                continue
+            await log_error(
+                db,
+                request,
+                current_user,
+                "SIMULATION_CREATE_ERROR",
+                exc,
+                "Error creating simulation after retries",
+            )
+            raise HTTPException(status_code=500, detail="Simulation service error") from exc
 
 # ============================================================
 # 🧩 GET SIMULATION BY ID
