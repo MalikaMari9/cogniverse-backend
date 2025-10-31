@@ -9,15 +9,31 @@ from app.services import simulation_service
 
 
 def _serialize(model) -> Dict[str, Any]:
-    return model.model_dump(exclude_none=True, by_alias=True)
+    if hasattr(model, "model_dump"):
+        return model.model_dump(exclude_none=True, by_alias=True)
+    elif isinstance(model, dict):
+        return model
+    else:
+        return {}
 
 
 async def create_simulation(payload: SimulationCreateRequest) -> Dict[str, Any]:
+    print("DEBUG create_simulation payload type:", type(payload))
+
     return await simulation_service.create_simulation(_serialize(payload))
 
 
 async def get_simulation(simulation_id: str) -> Dict[str, Any]:
-    return await simulation_service.get_simulation(simulation_id)
+    result = await simulation_service.get_simulation(simulation_id, slim=True)
+
+    print(f"[DEBUG] Controller get_simulation result keys: {list(result.keys())}")
+    if "simulation" in result:
+        sim = result["simulation"]
+        print(f"[DEBUG] Simulation id: {sim.get('id')} | status: {sim.get('status')}")
+        print(f"[DEBUG] Event count: {len(sim.get('events', []))}")
+        for i, e in enumerate(sim.get("events", [])[:5]):
+            print(f"   [{i}] type={e.get('type')} actor={e.get('actor')} text={e.get('text') or e.get('summary')}")
+    return result
 
 
 async def advance_simulation(

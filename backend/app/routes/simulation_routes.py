@@ -7,7 +7,6 @@ from app.db.schemas.simulation_schema import (
     SimulationAdvanceRequest,
     SimulationCreateRequest,
     SimulationFateRequest,
-    SimulationResponse,
 )
 from app.services.jwt_service import get_current_user
 from app.services.route_logger_helper import log_action, log_error
@@ -15,7 +14,10 @@ from app.services.route_logger_helper import log_action, log_error
 router = APIRouter(prefix="/simulations", tags=["Simulations"])
 
 
-@router.post("/", response_model=SimulationResponse, status_code=status.HTTP_201_CREATED)
+# ============================================================
+# 🧩 CREATE SIMULATION
+# ============================================================
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_simulation(
     payload: SimulationCreateRequest,
     request: Request,
@@ -31,7 +33,7 @@ async def create_simulation(
             "SIMULATION_CREATE",
             details=f"Created simulation for scenario: {payload.scenario[:80]}",
         )
-        return SimulationResponse.model_validate(result)
+        return result  # ✅ direct pass-through (no model trimming)
     except HTTPException as exc:
         await log_error(
             db,
@@ -41,8 +43,8 @@ async def create_simulation(
             exc,
             "Failed to create simulation",
         )
-        raise exc
-    except Exception as exc:  # pragma: no cover - defensive
+        raise
+    except Exception as exc:  # pragma: no cover
         await log_error(
             db,
             request,
@@ -54,11 +56,10 @@ async def create_simulation(
         raise HTTPException(status_code=500, detail="Simulation service error") from exc
 
 
-@router.get(
-    "/{simulation_id}",
-    response_model=SimulationResponse,
-    status_code=status.HTTP_200_OK,
-)
+# ============================================================
+# 🧩 GET SIMULATION BY ID
+# ============================================================
+@router.get("/{simulation_id}", status_code=status.HTTP_200_OK)
 async def get_simulation(
     simulation_id: str,
     request: Request,
@@ -75,7 +76,16 @@ async def get_simulation(
             details=f"Viewed simulation {simulation_id}",
             dedupe_key=f"simulation_{simulation_id}",
         )
-        return SimulationResponse.model_validate(result)
+
+        # --- Debug: pretty print outgoing payload ---
+        try:
+            import json
+            print(f"[DEBUG ROUTE] Outgoing SimulationResponse for {simulation_id}:")
+            print(json.dumps(result, indent=2)[:4000])
+        except Exception as e:
+            print("[DEBUG ROUTE] (could not serialize result)", e)
+
+        return result  # ✅ send everything to frontend untouched
     except HTTPException as exc:
         await log_error(
             db,
@@ -85,8 +95,8 @@ async def get_simulation(
             exc,
             f"Failed to view simulation {simulation_id}",
         )
-        raise exc
-    except Exception as exc:  # pragma: no cover - defensive
+        raise
+    except Exception as exc:
         await log_error(
             db,
             request,
@@ -98,11 +108,10 @@ async def get_simulation(
         raise HTTPException(status_code=500, detail="Simulation service error") from exc
 
 
-@router.post(
-    "/{simulation_id}/advance",
-    response_model=SimulationResponse,
-    status_code=status.HTTP_200_OK,
-)
+# ============================================================
+# 🧩 ADVANCE SIMULATION
+# ============================================================
+@router.post("/{simulation_id}/advance", status_code=status.HTTP_200_OK)
 async def advance_simulation(
     simulation_id: str,
     payload: SimulationAdvanceRequest,
@@ -119,7 +128,7 @@ async def advance_simulation(
             "SIMULATION_ADVANCE",
             details=f"Advanced simulation {simulation_id} by {payload.steps} step(s)",
         )
-        return SimulationResponse.model_validate(result)
+        return result  # ✅ direct JSON pass-through
     except HTTPException as exc:
         await log_error(
             db,
@@ -129,8 +138,8 @@ async def advance_simulation(
             exc,
             f"Failed to advance simulation {simulation_id}",
         )
-        raise exc
-    except Exception as exc:  # pragma: no cover - defensive
+        raise
+    except Exception as exc:
         await log_error(
             db,
             request,
@@ -142,11 +151,10 @@ async def advance_simulation(
         raise HTTPException(status_code=500, detail="Simulation service error") from exc
 
 
-@router.post(
-    "/{simulation_id}/fate",
-    response_model=SimulationResponse,
-    status_code=status.HTTP_200_OK,
-)
+# ============================================================
+# 🧩 TRIGGER FATE
+# ============================================================
+@router.post("/{simulation_id}/fate", status_code=status.HTTP_200_OK)
 async def trigger_simulation_fate(
     simulation_id: str,
     payload: SimulationFateRequest,
@@ -155,9 +163,7 @@ async def trigger_simulation_fate(
     current_user=Depends(get_current_user),
 ):
     try:
-        result = await simulation_controller.trigger_simulation_fate(
-            simulation_id, payload
-        )
+        result = await simulation_controller.trigger_simulation_fate(simulation_id, payload)
         summary = (
             payload.prompt[:80] if payload.prompt else "No prompt provided (random fate)"
         )
@@ -168,7 +174,7 @@ async def trigger_simulation_fate(
             "SIMULATION_FATE",
             details=f"Triggered fate for simulation {simulation_id}: {summary}",
         )
-        return SimulationResponse.model_validate(result)
+        return result  # ✅ full data preserved
     except HTTPException as exc:
         await log_error(
             db,
@@ -178,8 +184,8 @@ async def trigger_simulation_fate(
             exc,
             f"Failed to trigger fate for simulation {simulation_id}",
         )
-        raise exc
-    except Exception as exc:  # pragma: no cover - defensive
+        raise
+    except Exception as exc:
         await log_error(
             db,
             request,

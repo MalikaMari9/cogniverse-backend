@@ -1,8 +1,7 @@
-from fastapi import Request, Depends
+from fastapi import Request
 from sqlalchemy.orm import Session
 from app.db.schemas.system_log_schema import SystemLogCreate
 from app.controllers.system_log_controller import create_log
-from app.db.database import get_db
 
 class SystemLogger:
     @staticmethod
@@ -32,10 +31,13 @@ class SystemLogger:
                 status=status
             )
             
-            return create_log(log_data, db)
+            # ✅ FIXED ARGUMENT ORDER
+            return create_log(db, log_data)
+
         except Exception as e:
             print(f"Logging failed: {e}")
             # Don't break the main functionality if logging fails
+
 
 # Global instance
 system_logger = SystemLogger()

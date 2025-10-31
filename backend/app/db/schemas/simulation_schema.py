@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+
 class AgentCustomization(BaseModel):
     slot: int = Field(..., ge=0, le=4)
     name: Optional[str] = None
