@@ -89,15 +89,43 @@ async def get_simulation(
             dedupe_key=f"simulation_{simulation_id}",
         )
 
-        # --- Debug: pretty print outgoing payload ---
+        # --- Debug: pretty print outgoing payload (sanitized, full output) ---
         try:
             import json
+
+            def sanitize(obj):
+                """Recursively hide or mark heavy text fields."""
+                if isinstance(obj, dict):
+                    clean = {}
+                    for k, v in obj.items():
+                        if k in {
+                            "memory",
+                            "corroded_memory",
+                            "biography",
+                            "thought_process",
+                            "scenario",
+                        }:
+                            # show full text (no truncation)
+                            clean[k] = v
+                        elif isinstance(v, (dict, list)):
+                            clean[k] = sanitize(v)
+                        else:
+                            clean[k] = v
+                    return clean
+                elif isinstance(obj, list):
+                    return [sanitize(x) for x in obj]
+                return obj
+
+            safe_result = sanitize(result)
             print(f"[DEBUG ROUTE] Outgoing SimulationResponse for {simulation_id}:")
-            print(json.dumps(result, indent=2)[:4000])
+            # ⛔ no cutoff here — prints entire JSON
+            print(json.dumps(safe_result, indent=2, ensure_ascii=False))
+
         except Exception as e:
             print("[DEBUG ROUTE] (could not serialize result)", e)
 
         return result  # ✅ send everything to frontend untouched
+
     except HTTPException as exc:
         await log_error(
             db,
