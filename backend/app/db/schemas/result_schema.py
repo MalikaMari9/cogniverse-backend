@@ -3,27 +3,30 @@ from typing import Optional
 from typing_extensions import Annotated
 from datetime import datetime
 from enum import Enum
-
+from typing import Dict, Any, List, Optional
 class LifecycleStatus(str, Enum):
     active = "active"
     inactive = "inactive"
     archived = "archived"
 
 class ResultType(str, Enum):
-    text = "text"
+    system = "system"
+    emotion = "emotion"
+    memory = "memory"
+    corrosion = "corrosion"
     summary = "summary"
-    log = "log"
-    thought = "thought"
+    position = "position" 
+
 
 class ResultBase(BaseModel):
-    projectagentid: int
+    projectagentid: Optional[int] = None
     scenarioid: int
     resulttype: ResultType
-    sequence_no: Annotated[int, Field(ge=0, description="Sequence number must be ≥ 0")]
-    confidence_score: Annotated[float, Field(ge=0, le=1, description="Confidence between 0 and 1")]
+    sequence_no: Optional[int] = None
+    confidence_score: Optional[float] = None
     resulttext: str
     status: Optional[LifecycleStatus] = LifecycleStatus.active
- 
+
 class ResultCreate(ResultBase):
     pass
 
@@ -43,7 +46,18 @@ class ResultResponse(ResultBase):
     is_deleted: Optional[bool] = False
     deleted_at: Optional[datetime] = None
    
+class SaveSimulationResultsRequest(BaseModel):
+    scenarioid: int
+    projectid: int
+    simulation: Dict[str, Any] = {}
+    logs: List[Dict[str, Any]] = []
+    agentLogs: Dict[str, List[Dict[str, Any]]] = {}
+    positions: List[Dict[str, Any]] = []  # 🧭 NEW
 
 
     class Config:
         from_attributes = True
+
+
+
+        

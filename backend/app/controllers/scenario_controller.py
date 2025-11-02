@@ -70,6 +70,7 @@ def create_scenario(db: Session, scenario_data: ScenarioCreate):
 
         return new_scenario
 
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

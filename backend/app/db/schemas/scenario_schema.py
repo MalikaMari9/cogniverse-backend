@@ -9,11 +9,11 @@ class LifecycleStatus(str, Enum):
     archived = "archived"
 
 class ScenarioBase(BaseModel):
-    scenarioname: Optional[str] = None
-    scenarioprompt: str
+    scenarioname: Optional[str] = Field(None, max_length=100)
+    scenarioprompt: Optional[str] = None
     projectid: int
     status: Optional[LifecycleStatus] = LifecycleStatus.active
- 
+
 class ScenarioCreate(ScenarioBase):
     pass
 

@@ -178,3 +178,16 @@ async def hard_delete_scenario(
     except Exception as e:
         await log_error(db, request, current_user, "SCENARIO_PURGE_ERROR", e, f"Error purging scenario {scenario_id}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/quick", response_model=ScenarioResponse)
+async def quick_create_scenario(
+    scenario: ScenarioCreate,
+    db: Session = Depends(get_db),
+):
+    """Create a scenario without user context/logging — used by simulation auto-save."""
+    try:
+        result = scenario_controller.create_scenario(db, scenario)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

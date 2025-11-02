@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from app.db.database import get_db
 from app.controllers import result_controller
-from app.db.schemas.result_schema import ResultCreate, ResultUpdate, ResultResponse
+from app.db.schemas.result_schema import ResultCreate, ResultUpdate, ResultResponse, SaveSimulationResultsRequest
 from app.services.jwt_service import get_current_user
 from app.services.route_logger_helper import log_action, log_error
 
@@ -214,3 +214,47 @@ async def get_results_by_scenario(
             f"Error fetching results for scenario {scenario_id}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/save_simulation")
+async def save_simulation(
+    payload: SaveSimulationResultsRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        out = result_controller.save_simulation_results(
+            db,
+            scenarioid=payload.scenarioid,
+            projectid=payload.projectid,
+            simulation=payload.simulation or {},
+            logs=payload.logs or [],
+            agentLogs=payload.agentLogs or {},
+            positions=payload.positions or [],
+        )
+        await log_action(
+            db, request, current_user,
+            "RESULT_SAVE_SIMULATION",
+            details=f"Saved simulation for scenario {payload.scenarioid}",
+        )
+        return out
+    except HTTPException as e:
+        await log_error(db, request, current_user, "RESULT_SAVE_SIMULATION_FAILED", e, "Failed to save simulation results")
+        raise e
+    except Exception as e:
+        await log_error(db, request, current_user, "RESULT_SAVE_SIMULATION_ERROR", e, "Error saving simulation results")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# ============================================================
+# 🔹 GET REPLAY DATA (for scenario replays)
+# ============================================================
+@router.get("/replay/{scenarioid}")
+async def get_replay_data_route(
+    scenarioid: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        return result_controller.get_replay_data(db, scenarioid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
